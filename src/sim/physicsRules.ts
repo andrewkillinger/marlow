@@ -40,28 +40,32 @@ function updateGases(grid: Grid, dt: number) {
     // diffuse sideways randomly to avoid columns
     let dx = Math.sign(Math.random() - 0.5);
 
-    tryMoveGas(grid, x, y, x + dx, targetY, cell);
+    const { x: fx, y: fy } = tryMoveGas(grid, x, y, x + dx, targetY, cell);
 
     // Smoke fades
     if (cell.mat === "SMOKE") {
-      if (Math.random() < MATERIALS.SMOKE.fadeRate! * dt) grid.set(x, y, null);
+      if (Math.random() < MATERIALS.SMOKE.fadeRate! * dt) grid.set(fx, fy, null);
     }
     // Steam condenses
     if (cell.mat === "STEAM") {
       const t = cell.temp ?? 100;
       if (t < (MATERIALS.STEAM.condenseTemp ?? 95)) {
-        grid.set(x, y, { mat: "WATER", temp: 80, vx: 0, vy: 0 });
+        grid.set(fx, fy, { mat: "WATER", temp: 80, vx: 0, vy: 0 });
       }
     }
   });
 }
 
 function tryMoveGas(grid: Grid, x:number, y:number, nx:number, ny:number, c:Cell) {
-  if (!grid.inBounds(nx, ny)) return;
+  if (!grid.inBounds(nx, ny)) return { x, y };
   const dest = grid.get(nx, ny);
-  if (!dest) { grid.swap(x, y, nx, ny); return; }
+  if (!dest) { grid.swap(x, y, nx, ny); return { x: nx, y: ny }; }
   // gases displace only other gases (lighter rises through heavier)
-  if (isGas(dest.mat) && density(dest.mat) > density(c.mat)) grid.swap(x, y, nx, ny);
+  if (isGas(dest.mat) && density(dest.mat) > density(c.mat)) {
+    grid.swap(x, y, nx, ny);
+    return { x: nx, y: ny };
+  }
+  return { x, y };
 }
 
 const isGas = (m:MaterialKey) => m==="SMOKE"||m==="STEAM"||m==="FIRE";
