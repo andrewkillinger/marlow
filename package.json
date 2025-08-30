@@ -1,0 +1,16 @@
+{
+  "name": "gravity-sandbox",
+  "version": "1.0.0",
+  "description": "Phaser gravity sandbox",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "npx http-server -o",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "dependencies": {
+    "phaser": "^3.60.0"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
