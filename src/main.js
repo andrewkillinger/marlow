@@ -51,11 +51,23 @@ class SandboxScene extends Phaser.Scene {
     }
     this.physics.add.collider(this.objects, this.ground);
     this.physics.world.setBoundsCollision(true, true, true, false);
-
+    this.placing = false;
+    this.lastPlace = 0;
     this.input.on('pointerdown', pointer => {
       if (this.mode === 'place') {
+        this.placing = true;
         this.placeObject(pointer.x, pointer.y);
+        this.lastPlace = pointer.time;
       }
+    });
+    this.input.on('pointermove', pointer => {
+      if (this.mode === 'place' && this.placing && pointer.time - this.lastPlace > 100) {
+        this.placeObject(pointer.x, pointer.y);
+        this.lastPlace = pointer.time;
+      }
+    });
+    this.input.on('pointerup', () => {
+      this.placing = false;
     });
 
     this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
@@ -119,8 +131,8 @@ class SandboxScene extends Phaser.Scene {
     this.sun.setVisible(this.sun.y < centerY);
     this.moon.setVisible(this.moon.y < centerY);
 
-    const day = { r: 135, g: 206, b: 235 };
-    const night = { r: 0, g: 16, b: 51 };
+    const day = { r: 32, g: 16, b: 64 };
+    const night = { r: 0, g: 0, b: 16 };
     const t = progress < 0.5 ? progress * 2 : (progress - 0.5) * 2;
     const from = progress < 0.5 ? day : night;
     const to = progress < 0.5 ? night : day;
@@ -135,7 +147,7 @@ const config = {
   type: Phaser.AUTO,
   width: 375,
   height: 667,
-  backgroundColor: '#87ceeb',
+  backgroundColor: '#000000',
   physics: {
     default: 'arcade',
     arcade: {
@@ -154,27 +166,28 @@ const game = new Phaser.Game(config);
 
 // UI handlers
 const placeMenu = document.getElementById('placeMenu');
-const modeButtons = document.querySelectorAll('#modeMenu button');
-modeButtons.forEach(btn => {
-  btn.addEventListener('click', () => {
-    const scene = game.scene.keys['sandbox'];
-    modeButtons.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    if (btn.dataset.mode === 'place') {
-      scene.mode = 'place';
-      placeMenu.style.display = 'flex';
-      const active = placeMenu.querySelector('button.active') || placeMenu.querySelector('button');
-      scene.currentType = active.dataset.type;
-    } else {
-      scene.mode = 'interact';
-      placeMenu.style.display = 'none';
-    }
-  });
+const modeToggle = document.getElementById('modeToggle');
+const materialButtons = document.querySelectorAll('#placeMenu button');
+
+modeToggle.addEventListener('pointerdown', () => {
+  const scene = game.scene.keys['sandbox'];
+  if (scene.mode === 'place') {
+    scene.mode = 'interact';
+    modeToggle.textContent = 'Mode: Interact';
+    modeToggle.classList.remove('active');
+    materialButtons.forEach(b => b.disabled = true);
+  } else {
+    scene.mode = 'place';
+    modeToggle.textContent = 'Mode: Place';
+    modeToggle.classList.add('active');
+    materialButtons.forEach(b => b.disabled = false);
+    const active = placeMenu.querySelector('button.active') || placeMenu.querySelector('button');
+    scene.currentType = active.dataset.type;
+  }
 });
 
-const materialButtons = document.querySelectorAll('#placeMenu button');
 materialButtons.forEach(btn => {
-  btn.addEventListener('click', () => {
+  btn.addEventListener('pointerdown', () => {
     materialButtons.forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     const scene = game.scene.keys['sandbox'];

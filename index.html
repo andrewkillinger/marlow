@@ -4,52 +4,52 @@
   <meta charset="UTF-8">
   <title>Gravity Sandbox</title>
   <style>
-    body { margin:0; background:#87ceeb; }
-      #menu {
-        position:absolute;
-        top:0;
-        left:0;
-        width:100%;
-        height:80px;
-        background:rgba(0,0,0,0.5);
-        color:#0f0;
-        font-family:monospace;
-        display:flex;
-        align-items:center;
-      }
-      #menu button {
-        margin:0 5px;
-        background:#111;
-        color:#0f0;
-        border:1px solid #0f0;
-        font-size:32px;
-        padding:16px;
-      }
-      #menu button.active { background:#0f0; color:#111; }
-      #modeMenu button { padding:16px 24px; font-size:32px; }
-      #placeMenu { display:flex; }
-      canvas { display:block; margin-top:80px; image-rendering:pixelated; }
+    body { margin:0; background:#000; color:#0ff; }
+    #menu {
+      position:absolute;
+      top:0;
+      left:0;
+      width:100%;
+      height:80px;
+      background:rgba(10,10,25,0.8);
+      font-family:'Courier New', monospace;
+      display:flex;
+      align-items:center;
+    }
+    #menu button {
+      margin:0 5px;
+      background:#111;
+      color:#0ff;
+      border:2px solid #0ff;
+      font-size:32px;
+      padding:16px;
+      border-radius:4px;
+      touch-action:manipulation;
+      user-select:none;
+    }
+    #menu button.active { background:#0ff; color:#111; }
+    #menu button:disabled { opacity:0.3; }
+    #menu button:active:not(:disabled) { transform:scale(0.95); filter:brightness(1.2); }
+    #placeMenu { display:flex; }
+    canvas { display:block; margin-top:80px; image-rendering:pixelated; }
     .scanlines { pointer-events:none; position:fixed; top:0; left:0; width:100%; height:100%; background:repeating-linear-gradient(transparent 0px, transparent 2px, rgba(0,0,0,0.2) 2px, rgba(0,0,0,0.2) 4px); }
   </style>
 </head>
 <body>
   <div id="menu">
-    <div id="modeMenu">
-      <button data-mode="place" class="active">Place</button>
-      <button data-mode="interact">Interact</button>
+    <button id="modeToggle" class="active">Mode: Place</button>
+    <div id="placeMenu">
+      <button data-type="sand">🏖️</button>
+      <button data-type="water">💧</button>
+      <button data-type="seed">🌱</button>
+      <button data-type="dynamite">🧨</button>
+      <button data-type="ball">⚽</button>
+      <button data-type="lava">🌋</button>
+      <button data-type="soil">🟫</button>
+      <button data-type="bot">🤖</button>
+      <button data-type="spring">🌀</button>
+      <button data-type="magnet">🧲</button>
     </div>
-      <div id="placeMenu">
-        <button data-type="sand">🏖️</button>
-        <button data-type="water">💧</button>
-        <button data-type="seed">🌱</button>
-        <button data-type="dynamite">🧨</button>
-        <button data-type="ball">⚽</button>
-        <button data-type="lava">🌋</button>
-        <button data-type="soil">🟫</button>
-        <button data-type="bot">🤖</button>
-        <button data-type="spring">🌀</button>
-        <button data-type="magnet">🧲</button>
-      </div>
   </div>
   <div class="scanlines"></div>
   <script src="./node_modules/phaser/dist/phaser.js"></script>
