@@ -36,6 +36,14 @@ class SandboxScene extends Phaser.Scene {
   create() {
     this.objects = this.physics.add.group();
 
+    // day/night cycle setup
+    this.cycleDuration = 300000; // 5 minutes
+    this.cycleStart = this.time.now;
+    const w = this.game.config.width;
+    const h = this.game.config.height;
+    this.sun = this.add.circle(0, 0, 20, 0xffff00).setDepth(-1);
+    this.moon = this.add.circle(0, 0, 15, 0xffffff).setDepth(-1);
+
     this.input.on('pointerdown', pointer => {
       if (this.mode === 'place') {
         this.placeObject(pointer.x, pointer.y);
@@ -81,12 +89,37 @@ class SandboxScene extends Phaser.Scene {
     bot.body.setBounce(1);
   }
 
-  update() {
+  update(time) {
     if (this.mode === 'interact') {
       this.input.setDraggable(this.objects.getChildren());
     } else {
       this.input.setDraggable([]);
     }
+
+    // day/night cycle animation
+    const progress = ((time - this.cycleStart) % this.cycleDuration) / this.cycleDuration;
+    const angle = progress * Math.PI * 2;
+    const centerX = this.game.config.width / 2;
+    const centerY = this.game.config.height * 0.8;
+    const radius = this.game.config.width / 2;
+
+    this.sun.x = centerX + radius * Math.cos(angle);
+    this.sun.y = centerY + radius * Math.sin(angle);
+    this.moon.x = centerX + radius * Math.cos(angle + Math.PI);
+    this.moon.y = centerY + radius * Math.sin(angle + Math.PI);
+
+    this.sun.setVisible(this.sun.y < centerY);
+    this.moon.setVisible(this.moon.y < centerY);
+
+    const day = { r: 135, g: 206, b: 235 };
+    const night = { r: 0, g: 16, b: 51 };
+    const t = progress < 0.5 ? progress * 2 : (progress - 0.5) * 2;
+    const from = progress < 0.5 ? day : night;
+    const to = progress < 0.5 ? night : day;
+    const r = Phaser.Math.Linear(from.r, to.r, t);
+    const g = Phaser.Math.Linear(from.g, to.g, t);
+    const b = Phaser.Math.Linear(from.b, to.b, t);
+    this.cameras.main.setBackgroundColor(Phaser.Display.Color.GetColor(r, g, b));
   }
 }
 
@@ -120,6 +153,7 @@ modeToggle.addEventListener('click', () => {
     scene.mode = 'place';
     placeMenu.style.display = 'block';
     modeToggle.textContent = 'Place';
+    scene.currentType = placeMenu.querySelector('button').dataset.type;
   } else {
     scene.mode = 'interact';
     placeMenu.style.display = 'none';
@@ -133,3 +167,5 @@ document.querySelectorAll('#placeMenu button').forEach(btn => {
     scene.currentType = btn.dataset.type;
   });
 });
+
+document.getElementById('menu').addEventListener('pointerdown', e => e.stopPropagation());
