@@ -42,6 +42,11 @@ class SandboxScene extends Phaser.Scene {
       }
     });
 
+    this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
+      gameObject.x = dragX;
+      gameObject.y = dragY;
+    });
+
     // automated bots
     this.time.addEvent({ delay: 2000, callback: () => this.spawnBot(), loop: true });
   }
@@ -79,10 +84,6 @@ class SandboxScene extends Phaser.Scene {
   update() {
     if (this.mode === 'interact') {
       this.input.setDraggable(this.objects.getChildren());
-      this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
-        gameObject.x = dragX;
-        gameObject.y = dragY;
-      });
     } else {
       this.input.setDraggable([]);
     }
