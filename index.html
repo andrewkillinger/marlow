@@ -4,54 +4,59 @@
   <meta charset="UTF-8">
   <title>Gravity Sandbox</title>
   <style>
-    body { margin:0; background:#000; color:#0ff; }
+    body { margin:0; background:#000; }
     #menu {
       position:absolute;
       top:0;
       left:0;
       width:100%;
-      height:80px;
       background:rgba(10,10,25,0.8);
-      font-family:'Courier New', monospace;
       display:flex;
+      flex-direction:column;
+      font-family:sans-serif;
       align-items:center;
     }
+    #modeToggle { width:100%; }
+    .menu-row {
+      display:flex;
+      justify-content:center;
+      width:100%;
+    }
     #menu button {
-      margin:0 5px;
-      background:#111;
-      color:#0ff;
-      border:2px solid #0ff;
+      margin:4px;
+      background:#222;
+      color:#fff;
+      border:2px solid #fff;
       font-size:32px;
       padding:16px;
       border-radius:4px;
       touch-action:manipulation;
       user-select:none;
     }
-    #menu button.active { background:#0ff; color:#111; box-shadow:0 0 10px #0ff; }
+    #menu button.active { background:#fff; color:#000; }
     #menu button:disabled { opacity:0.3; }
-    #menu button:active:not(:disabled) { transform:scale(0.95); filter:brightness(1.2); }
-    #placeMenu { display:flex; }
-    canvas { display:block; margin-top:80px; image-rendering:pixelated; }
-    .scanlines { pointer-events:none; position:fixed; top:0; left:0; width:100%; height:100%; background:repeating-linear-gradient(transparent 0px, transparent 2px, rgba(0,0,0,0.2) 2px, rgba(0,0,0,0.2) 4px); }
+    canvas { display:block; margin-top:180px; image-rendering:pixelated; }
   </style>
 </head>
 <body>
   <div id="menu">
     <button id="modeToggle" class="active">Place</button>
-    <div id="placeMenu">
-      <button data-type="sand">🏖️</button>
-      <button data-type="water">💧</button>
-      <button data-type="seed">🌱</button>
+    <div id="objectMenu" class="menu-row">
       <button data-type="dynamite">🧨</button>
+      <button data-type="seed">🌱</button>
       <button data-type="ball">⚽</button>
-      <button data-type="lava">🌋</button>
-      <button data-type="soil">🟫</button>
       <button data-type="bot">🤖</button>
       <button data-type="spring">🌀</button>
       <button data-type="magnet">🧲</button>
     </div>
+    <div id="materialMenu" class="menu-row">
+      <button data-type="sand">🏖️</button>
+      <button data-type="water">💧</button>
+      <button data-type="lava">🌋</button>
+      <button data-type="soil">🟫</button>
+    </div>
   </div>
-  <div class="scanlines"></div>
+  <!-- Removed CRT scanline overlay for cleaner pixels -->
   <!-- Load Phaser from CDN to avoid missing local dependency issues -->
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <script type="module" src="src/main.js"></script>

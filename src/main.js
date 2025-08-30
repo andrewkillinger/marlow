@@ -89,8 +89,6 @@ class SandboxScene extends Phaser.Scene {
       gameObject.y = dragY;
     });
 
-    // automated bots
-    this.time.addEvent({ delay: 2000, callback: () => this.spawnBot(), loop: true });
   }
 
   placeObject(x, y) {
@@ -123,14 +121,6 @@ class SandboxScene extends Phaser.Scene {
         obj.destroy();
       });
     }
-  }
-
-  spawnBot() {
-    if (this.objects.countActive() > 20) return;
-    const bot = this.objects.create(Phaser.Math.Between(0, this.game.config.width), 0, 'bot');
-    bot.body.setVelocity(Phaser.Math.Between(-50, 50), 20);
-    bot.body.setCollideWorldBounds(true);
-    bot.body.setBounce(1);
   }
 
   stepSimulation() {
@@ -282,9 +272,12 @@ const config = {
 const game = new Phaser.Game(config);
 
 // UI handlers
-const placeMenu = document.getElementById('placeMenu');
 const modeToggle = document.getElementById('modeToggle');
-const materialButtons = document.querySelectorAll('#placeMenu button');
+const objectButtons = document.querySelectorAll('#objectMenu button');
+const materialButtons = document.querySelectorAll('#materialMenu button');
+const allButtons = [...objectButtons, ...materialButtons];
+let activeButton = allButtons[0];
+activeButton.classList.add('active');
 
 modeToggle.addEventListener('pointerdown', () => {
   const scene = game.scene.keys['sandbox'];
@@ -292,25 +285,24 @@ modeToggle.addEventListener('pointerdown', () => {
     scene.mode = 'interact';
     modeToggle.textContent = 'Interact';
     modeToggle.classList.remove('active');
-    materialButtons.forEach(b => b.disabled = true);
+    allButtons.forEach(b => b.disabled = true);
   } else {
     scene.mode = 'place';
     modeToggle.textContent = 'Place';
     modeToggle.classList.add('active');
-    materialButtons.forEach(b => b.disabled = false);
-    const active = placeMenu.querySelector('button.active') || placeMenu.querySelector('button');
-    scene.currentType = active.dataset.type;
+    allButtons.forEach(b => b.disabled = false);
+    scene.currentType = activeButton.dataset.type;
   }
 });
 
-materialButtons.forEach(btn => {
+allButtons.forEach(btn => {
   btn.addEventListener('pointerdown', () => {
-    materialButtons.forEach(b => b.classList.remove('active'));
+    allButtons.forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    activeButton = btn;
     const scene = game.scene.keys['sandbox'];
     scene.currentType = btn.dataset.type;
   });
 });
-materialButtons[0].classList.add('active');
 
 document.getElementById('menu').addEventListener('pointerdown', e => e.stopPropagation());
