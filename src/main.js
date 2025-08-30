@@ -42,8 +42,10 @@ class SandboxScene extends Phaser.Scene {
     this.cycleStart = this.time.now;
     const w = this.game.config.width;
     const h = this.game.config.height;
+    this.background = this.add.graphics().setDepth(-2);
     this.sun = this.add.circle(0, 0, 20, 0xffff00).setDepth(-1);
     this.moon = this.add.circle(0, 0, 15, 0xffffff).setDepth(-1);
+    this.drawSky(0);
 
     // simulation grid
     this.gridWidth = Math.floor(w / this.cellSize);
@@ -53,7 +55,7 @@ class SandboxScene extends Phaser.Scene {
     // starting environment ground
     this.ground = this.physics.add.staticGroup();
     for (let x = 0; x < w; x += this.cellSize) {
-      this.ground.create(x, h, 'soil').setOrigin(0, 1).refreshBody();
+      this.ground.create(x, h, 'sand').setOrigin(0, 1).refreshBody();
     }
     for (let gx = 0; gx < this.gridWidth; gx++) {
       this.grid[this.gridHeight - 1][gx] = { type: 'solid' };
@@ -198,6 +200,33 @@ class SandboxScene extends Phaser.Scene {
     return this.isInside(x, y) && !this.grid[y][x];
   }
 
+  drawSky(progress) {
+    const dayTop = { r: 135, g: 206, b: 235 };
+    const dayBottom = { r: 255, g: 223, b: 186 };
+    const nightTop = { r: 0, g: 0, b: 32 };
+    const nightBottom = { r: 0, g: 0, b: 64 };
+    const t = progress < 0.5 ? progress * 2 : (progress - 0.5) * 2;
+    const fromTop = progress < 0.5 ? dayTop : nightTop;
+    const toTop = progress < 0.5 ? nightTop : dayTop;
+    const fromBottom = progress < 0.5 ? dayBottom : nightBottom;
+    const toBottom = progress < 0.5 ? nightBottom : dayBottom;
+    const top = {
+      r: Phaser.Math.Linear(fromTop.r, toTop.r, t),
+      g: Phaser.Math.Linear(fromTop.g, toTop.g, t),
+      b: Phaser.Math.Linear(fromTop.b, toTop.b, t)
+    };
+    const bottom = {
+      r: Phaser.Math.Linear(fromBottom.r, toBottom.r, t),
+      g: Phaser.Math.Linear(fromBottom.g, toBottom.g, t),
+      b: Phaser.Math.Linear(fromBottom.b, toBottom.b, t)
+    };
+    const topColor = Phaser.Display.Color.GetColor(top.r, top.g, top.b);
+    const bottomColor = Phaser.Display.Color.GetColor(bottom.r, bottom.g, bottom.b);
+    this.background.clear();
+    this.background.fillGradientStyle(topColor, topColor, bottomColor, bottomColor);
+    this.background.fillRect(0, 0, this.game.config.width, this.game.config.height);
+  }
+
   update(time) {
     if (this.mode === 'interact') {
       this.input.setDraggable(this.objects.getChildren());
@@ -211,6 +240,7 @@ class SandboxScene extends Phaser.Scene {
 
     // day/night cycle animation
     const progress = ((time - this.cycleStart) % this.cycleDuration) / this.cycleDuration;
+    this.drawSky(progress);
     const angle = progress * Math.PI * 2;
     const centerX = this.game.config.width / 2;
     const centerY = this.game.config.height * 0.8;
@@ -224,16 +254,6 @@ class SandboxScene extends Phaser.Scene {
     this.sun.setVisible(this.sun.y < centerY);
     this.moon.setVisible(this.moon.y < centerY);
 
-    const day = { r: 32, g: 16, b: 64 };
-    const night = { r: 0, g: 0, b: 16 };
-    const t = progress < 0.5 ? progress * 2 : (progress - 0.5) * 2;
-    const from = progress < 0.5 ? day : night;
-    const to = progress < 0.5 ? night : day;
-    const r = Phaser.Math.Linear(from.r, to.r, t);
-    const g = Phaser.Math.Linear(from.g, to.g, t);
-    const b = Phaser.Math.Linear(from.b, to.b, t);
-    this.cameras.main.setBackgroundColor(Phaser.Display.Color.GetColor(r, g, b));
-
     for (let i = 0; i < 2; i++) {
       this.stepSimulation();
     }
@@ -244,7 +264,7 @@ const config = {
   type: Phaser.AUTO,
   width: 375,
   height: 667,
-  backgroundColor: '#000000',
+  backgroundColor: '#87ceeb',
   physics: {
     default: 'arcade',
     arcade: {
@@ -270,12 +290,12 @@ modeToggle.addEventListener('pointerdown', () => {
   const scene = game.scene.keys['sandbox'];
   if (scene.mode === 'place') {
     scene.mode = 'interact';
-    modeToggle.textContent = 'Mode: Interact';
+    modeToggle.textContent = 'Interact';
     modeToggle.classList.remove('active');
     materialButtons.forEach(b => b.disabled = true);
   } else {
     scene.mode = 'place';
-    modeToggle.textContent = 'Mode: Place';
+    modeToggle.textContent = 'Place';
     modeToggle.classList.add('active');
     materialButtons.forEach(b => b.disabled = false);
     const active = placeMenu.querySelector('button.active') || placeMenu.querySelector('button');
