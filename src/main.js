@@ -3,6 +3,7 @@ class SandboxScene extends Phaser.Scene {
     super('sandbox');
     this.mode = 'place';
     this.currentType = 'sand';
+    this.cellSize = 8;
   }
 
   preload() {
@@ -44,30 +45,41 @@ class SandboxScene extends Phaser.Scene {
     this.sun = this.add.circle(0, 0, 20, 0xffff00).setDepth(-1);
     this.moon = this.add.circle(0, 0, 15, 0xffffff).setDepth(-1);
 
+    // simulation grid
+    this.gridWidth = Math.floor(w / this.cellSize);
+    this.gridHeight = Math.floor(h / this.cellSize);
+    this.grid = Array.from({ length: this.gridHeight }, () => Array(this.gridWidth).fill(null));
+
     // starting environment ground
     this.ground = this.physics.add.staticGroup();
-    for (let x = 0; x < w; x += 8) {
+    for (let x = 0; x < w; x += this.cellSize) {
       this.ground.create(x, h, 'soil').setOrigin(0, 1).refreshBody();
     }
+    for (let gx = 0; gx < this.gridWidth; gx++) {
+      this.grid[this.gridHeight - 1][gx] = { type: 'solid' };
+    }
+
     this.physics.add.collider(this.objects, this.ground);
     this.physics.world.setBoundsCollision(true, true, true, false);
     this.placing = false;
     this.lastPlace = 0;
+    this.pointer = null;
     this.input.on('pointerdown', pointer => {
       if (this.mode === 'place') {
         this.placing = true;
+        this.pointer = pointer;
         this.placeObject(pointer.x, pointer.y);
         this.lastPlace = pointer.time;
       }
     });
     this.input.on('pointermove', pointer => {
-      if (this.mode === 'place' && this.placing && pointer.time - this.lastPlace > 100) {
-        this.placeObject(pointer.x, pointer.y);
-        this.lastPlace = pointer.time;
+      if (this.mode === 'place' && this.placing) {
+        this.pointer = pointer;
       }
     });
     this.input.on('pointerup', () => {
       this.placing = false;
+      this.pointer = null;
     });
 
     this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
@@ -80,6 +92,16 @@ class SandboxScene extends Phaser.Scene {
   }
 
   placeObject(x, y) {
+    if (this.currentType === 'sand' || this.currentType === 'water') {
+      const gx = Math.floor(x / this.cellSize);
+      const gy = Math.floor(y / this.cellSize);
+      if (this.isInside(gx, gy) && this.isEmpty(gx, gy)) {
+        const sprite = this.add.image(gx * this.cellSize, gy * this.cellSize, this.currentType).setOrigin(0);
+        this.grid[gy][gx] = { sprite, type: this.currentType };
+      }
+      return;
+    }
+
     const obj = this.objects.create(x, y, this.currentType);
     obj.setInteractive();
     obj.body.setBounce(0.2);
@@ -109,11 +131,82 @@ class SandboxScene extends Phaser.Scene {
     bot.body.setBounce(1);
   }
 
+  stepSimulation() {
+    for (let y = this.gridHeight - 2; y >= 0; y--) {
+      for (let x = 0; x < this.gridWidth; x++) {
+        const cell = this.grid[y][x];
+        if (!cell) continue;
+        if (cell.type === 'sand') {
+          this.updateSand(x, y);
+        } else if (cell.type === 'water') {
+          this.updateWater(x, y);
+        }
+      }
+    }
+  }
+
+  updateSand(x, y) {
+    if (this.isEmpty(x, y + 1)) {
+      this.moveCell(x, y, x, y + 1);
+      return;
+    }
+    const left = this.isEmpty(x - 1, y + 1);
+    const right = this.isEmpty(x + 1, y + 1);
+    if (left && right) {
+      const dir = Math.random() < 0.5 ? -1 : 1;
+      this.moveCell(x, y, x + dir, y + 1);
+    } else if (left) {
+      this.moveCell(x, y, x - 1, y + 1);
+    } else if (right) {
+      this.moveCell(x, y, x + 1, y + 1);
+    }
+  }
+
+  updateWater(x, y) {
+    if (this.isEmpty(x, y + 1)) {
+      this.moveCell(x, y, x, y + 1);
+      return;
+    }
+    const dirs = Phaser.Utils.Array.Shuffle([-1, 1]);
+    for (const dir of dirs) {
+      if (this.isEmpty(x + dir, y + 1)) {
+        this.moveCell(x, y, x + dir, y + 1);
+        return;
+      }
+    }
+    for (const dir of dirs) {
+      if (this.isEmpty(x + dir, y)) {
+        this.moveCell(x, y, x + dir, y);
+        return;
+      }
+    }
+  }
+
+  moveCell(x1, y1, x2, y2) {
+    if (!this.isInside(x2, y2)) return;
+    const cell = this.grid[y1][x1];
+    this.grid[y1][x1] = null;
+    this.grid[y2][x2] = cell;
+    cell.sprite.setPosition(x2 * this.cellSize, y2 * this.cellSize);
+  }
+
+  isInside(x, y) {
+    return x >= 0 && x < this.gridWidth && y >= 0 && y < this.gridHeight;
+  }
+
+  isEmpty(x, y) {
+    return this.isInside(x, y) && !this.grid[y][x];
+  }
+
   update(time) {
     if (this.mode === 'interact') {
       this.input.setDraggable(this.objects.getChildren());
     } else {
       this.input.setDraggable([]);
+      if (this.placing && this.pointer && time - this.lastPlace > 50) {
+        this.placeObject(this.pointer.x, this.pointer.y);
+        this.lastPlace = time;
+      }
     }
 
     // day/night cycle animation
@@ -140,6 +233,10 @@ class SandboxScene extends Phaser.Scene {
     const g = Phaser.Math.Linear(from.g, to.g, t);
     const b = Phaser.Math.Linear(from.b, to.b, t);
     this.cameras.main.setBackgroundColor(Phaser.Display.Color.GetColor(r, g, b));
+
+    for (let i = 0; i < 2; i++) {
+      this.stepSimulation();
+    }
   }
 }
 
