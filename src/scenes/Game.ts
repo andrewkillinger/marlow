@@ -1,10 +1,10 @@
 import Phaser from "phaser";
-import { SUBSTEPS, RENDER_SCALE, CELL_PX } from "../sim/materials";
+import { SUBSTEPS, RENDER_SCALE } from "../sim/materials";
 import { substep } from "../sim/physicsRules";
-import { createGrid } from "../sim/grid"; // your grid impl
 
 export default class Game extends Phaser.Scene {
-  private grid = createGrid(/* width, height */);
+  // TODO: provide grid implementation when available
+  private grid: any;
 
   create() {
     // Remove CRT overlay if you had one; keep crisp pixels:
@@ -15,6 +15,7 @@ export default class Game extends Phaser.Scene {
   }
 
   update(time: number, deltaMs: number) {
+    if (!this.grid) return; // grid not yet implemented
     const dt = Math.min(1/60, deltaMs/1000);
     const step = dt / SUBSTEPS;
     for (let i=0; i<SUBSTEPS; i++) substep(this.grid, step);
