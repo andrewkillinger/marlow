@@ -1,7 +1,7 @@
 class SandboxScene extends Phaser.Scene {
   constructor() {
     super('sandbox');
-    this.mode = 'interact';
+    this.mode = 'place';
     this.currentType = 'sand';
   }
 
@@ -43,6 +43,14 @@ class SandboxScene extends Phaser.Scene {
     const h = this.game.config.height;
     this.sun = this.add.circle(0, 0, 20, 0xffff00).setDepth(-1);
     this.moon = this.add.circle(0, 0, 15, 0xffffff).setDepth(-1);
+
+    // starting environment ground
+    this.ground = this.physics.add.staticGroup();
+    for (let x = 0; x < w; x += 8) {
+      this.ground.create(x, h, 'soil').setOrigin(0, 1).refreshBody();
+    }
+    this.physics.add.collider(this.objects, this.ground);
+    this.physics.world.setBoundsCollision(true, true, true, false);
 
     this.input.on('pointerdown', pointer => {
       if (this.mode === 'place') {
@@ -127,7 +135,7 @@ const config = {
   type: Phaser.AUTO,
   width: 375,
   height: 667,
-  backgroundColor: '#000',
+  backgroundColor: '#87ceeb',
   physics: {
     default: 'arcade',
     arcade: {
@@ -145,27 +153,34 @@ const config = {
 const game = new Phaser.Game(config);
 
 // UI handlers
-const modeToggle = document.getElementById('modeToggle');
 const placeMenu = document.getElementById('placeMenu');
-modeToggle.addEventListener('click', () => {
-  const scene = game.scene.keys['sandbox'];
-  if (scene.mode === 'interact') {
-    scene.mode = 'place';
-    placeMenu.style.display = 'block';
-    modeToggle.textContent = 'Place';
-    scene.currentType = placeMenu.querySelector('button').dataset.type;
-  } else {
-    scene.mode = 'interact';
-    placeMenu.style.display = 'none';
-    modeToggle.textContent = 'Interact';
-  }
+const modeButtons = document.querySelectorAll('#modeMenu button');
+modeButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const scene = game.scene.keys['sandbox'];
+    modeButtons.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (btn.dataset.mode === 'place') {
+      scene.mode = 'place';
+      placeMenu.style.display = 'flex';
+      const active = placeMenu.querySelector('button.active') || placeMenu.querySelector('button');
+      scene.currentType = active.dataset.type;
+    } else {
+      scene.mode = 'interact';
+      placeMenu.style.display = 'none';
+    }
+  });
 });
 
-document.querySelectorAll('#placeMenu button').forEach(btn => {
+const materialButtons = document.querySelectorAll('#placeMenu button');
+materialButtons.forEach(btn => {
   btn.addEventListener('click', () => {
+    materialButtons.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
     const scene = game.scene.keys['sandbox'];
     scene.currentType = btn.dataset.type;
   });
 });
+materialButtons[0].classList.add('active');
 
 document.getElementById('menu').addEventListener('pointerdown', e => e.stopPropagation());
