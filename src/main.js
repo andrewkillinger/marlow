@@ -1,3 +1,15 @@
+import { SUBSTEPS } from './sim/materials.js';
+import { substep } from './sim/physicsRules.js';
+
+const __BUILD_HASH__ = new URL(import.meta.url).searchParams.get('v') || Date.now().toString();
+console.log('BUILD', __BUILD_HASH__);
+console.log('Phaser.VERSION', Phaser.VERSION);
+console.log('navigator.userAgent', navigator.userAgent);
+console.log('devicePixelRatio', window.devicePixelRatio);
+console.log('bundle', import.meta.url);
+
+const dummyGrid = { width:0, height:0, get(){return null;}, set(){}, swap(){}, inBounds(){return false;} };
+
 class SandboxScene extends Phaser.Scene {
   constructor() {
     super('sandbox');
@@ -36,6 +48,13 @@ class SandboxScene extends Phaser.Scene {
 
   create() {
     this.objects = this.physics.add.group();
+
+    const DPR = Math.min(window.devicePixelRatio || 1, 2);
+    this.cameras.main.setZoom(DPR);
+    this.game.canvas.style.imageRendering = 'pixelated';
+    this.input.addPointer(2);
+    this.input.mouse?.disableContextMenu();
+    this.add.text(4,4,`v:${__BUILD_HASH__}`,{fontFamily:'monospace',fontSize:12,color:'#fff'}).setScrollFactor(0);
 
     // day/night cycle setup
     this.cycleDuration = 300000; // 5 minutes
@@ -247,24 +266,28 @@ class SandboxScene extends Phaser.Scene {
     for (let i = 0; i < 2; i++) {
       this.stepSimulation();
     }
+
+    const dt = Math.min(1/60, this.game.loop.delta / 1000);
+    const step = dt / SUBSTEPS;
+    for (let i=0; i<SUBSTEPS; i++) substep(dummyGrid, step);
   }
 }
-
 const config = {
   type: Phaser.AUTO,
-  width: 375,
-  height: 667,
-  backgroundColor: '#87ceeb',
-  physics: {
-    default: 'arcade',
-    arcade: {
-      gravity: { y: 300 },
-      debug: false
-    }
-  },
+  pixelArt: true,
+  roundPixels: true,
+  backgroundColor: '#0f1220',
   scale: {
     mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    parent: 'game',
+    width: 360,
+    height: 640
+  },
+  render: { antialias: false, mipmapFilter: 'NEAREST' },
+  physics: {
+    default: 'arcade',
+    arcade: { gravity: { y: 300 }, debug: false }
   },
   scene: [SandboxScene]
 };

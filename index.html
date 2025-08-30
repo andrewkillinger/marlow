@@ -1,15 +1,18 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <title>Gravity Sandbox</title>
-  <style>
-    body { margin:0; background:#000; }
-    #menu {
-      position:absolute;
-      top:0;
-      left:0;
-      width:100%;
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Gravity Sandbox</title>
+    <style>
+      html, body, #game { height:100%; margin:0; padding:0; background:#0f1220; }
+      canvas { touch-action:none; image-rendering:pixelated; }
+      @supports (height: 100dvh) { #game { height:100dvh; } }
+      #menu {
+        position:absolute;
+        top:0;
+        left:0;
+        width:100%;
       background:rgba(10,10,25,0.8);
       display:flex;
       flex-direction:column;
@@ -33,17 +36,16 @@
       touch-action:manipulation;
       user-select:none;
     }
-    #menu button.active { background:#fff; color:#000; }
-    #menu button:disabled { opacity:0.3; }
-    canvas { display:block; margin-top:180px; image-rendering:pixelated; }
-  </style>
-</head>
-<body>
-  <div id="menu">
-    <button id="modeToggle" class="active">Place</button>
-    <div id="objectMenu" class="menu-row">
-      <button data-type="dynamite">🧨</button>
-      <button data-type="seed">🌱</button>
+      #menu button.active { background:#fff; color:#000; }
+      #menu button:disabled { opacity:0.3; }
+    </style>
+  </head>
+  <body>
+    <div id="menu">
+      <button id="modeToggle" class="active">Place</button>
+      <div id="objectMenu" class="menu-row">
+        <button data-type="dynamite">🧨</button>
+        <button data-type="seed">🌱</button>
       <button data-type="ball">⚽</button>
       <button data-type="bot">🤖</button>
       <button data-type="spring">🌀</button>
@@ -55,10 +57,17 @@
       <button data-type="lava">🌋</button>
       <button data-type="soil">🟫</button>
     </div>
-  </div>
-  <!-- Removed CRT scanline overlay for cleaner pixels -->
-  <!-- Load Phaser from CDN to avoid missing local dependency issues -->
-  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
-  <script type="module" src="src/main.js"></script>
-</body>
-</html>
+    </div>
+    <div id="game"></div>
+    <!-- Removed CRT scanline overlay for cleaner pixels -->
+    <!-- Load Phaser from CDN to avoid missing local dependency issues -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
+    <script type="module">
+      const hash = Date.now();
+      const s = document.createElement('script');
+      s.type = 'module';
+      s.src = `src/main.js?v=${hash}`;
+      document.body.appendChild(s);
+    </script>
+  </body>
+  </html>
