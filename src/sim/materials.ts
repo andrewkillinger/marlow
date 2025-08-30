@@ -1,5 +1,5 @@
 // Material types and baseline physics for a pixel/destructible world.
-// Cell scale is 2 px; engine renders at 3x with nearest-neighbor.
+// Cell scale is defined in constants.ts and used for rendering.
 
 export type MaterialState = "granular" | "solid" | "liquid" | "gas" | "reactive";
 
@@ -32,8 +32,6 @@ export type MaterialKey =
   | "SAND" | "DIRT" | "STONE" | "WOOD" | "WATER"
   | "OIL" | "LAVA" | "FIRE" | "STEAM" | "SMOKE";
 
-export const CELL_PX = 2;               // pixel size per cell
-export const RENDER_SCALE = 3;          // canvas scale; keep nearest-neighbor
 export const GRAVITY_PX = 980;          // px/s^2 at this scale
 export const SUBSTEPS = 4;              // 60 FPS * 4 = 240 Hz solver
 
