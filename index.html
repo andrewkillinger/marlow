@@ -6,7 +6,12 @@
     <title>Gravity Sandbox</title>
     <style>
       html, body, #game { height:100%; margin:0; padding:0; background:#0f1220; }
-      canvas { touch-action:none; image-rendering:pixelated; }
+      canvas {
+        touch-action:none;
+        image-rendering:pixelated;
+        image-rendering:crisp-edges;
+        -ms-interpolation-mode:nearest-neighbor;
+      }
       @supports (height: 100dvh) { #game { height:100dvh; } }
       #menu {
         position:absolute;
@@ -59,14 +64,13 @@
     </div>
     </div>
     <div id="game"></div>
-    <!-- Removed CRT scanline overlay for cleaner pixels -->
     <!-- Load Phaser from CDN to avoid missing local dependency issues -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
     <script type="module">
       const hash = Date.now();
       const s = document.createElement('script');
       s.type = 'module';
-      s.src = `src/main.js?v=${hash}`;
+      s.src = `dist/main.js?v=${hash}`;
       document.body.appendChild(s);
     </script>
   </body>
