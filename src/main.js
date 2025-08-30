@@ -89,7 +89,8 @@ class SandboxScene extends Phaser.Scene {
       if (this.mode === 'place') {
         this.placing = true;
         this.pointer = pointer;
-        this.placeObject(pointer.x, pointer.y);
+        // Use world coordinates so placement aligns with camera zoom
+        this.placeObject(pointer.worldX, pointer.worldY);
         this.lastPlace = pointer.time;
       }
     });
@@ -242,7 +243,8 @@ class SandboxScene extends Phaser.Scene {
     } else {
       this.input.setDraggable([]);
       if (this.placing && this.pointer && time - this.lastPlace > 50) {
-        this.placeObject(this.pointer.x, this.pointer.y);
+        // Pointer coordinates are screen-space; convert to world-space
+        this.placeObject(this.pointer.worldX, this.pointer.worldY);
         this.lastPlace = time;
       }
     }
