@@ -1,77 +1,25 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <title>Gravity Sandbox</title>
     <style>
-      html, body, #game { height:100%; margin:0; padding:0; background:#0f1220; }
-      canvas {
-        touch-action:none;
-        image-rendering:pixelated;
-        image-rendering:crisp-edges;
-        -ms-interpolation-mode:nearest-neighbor;
+      html, body {
+        margin: 0;
+        height: 100%;
+        overscroll-behavior: none;
+        touch-action: none;
+        background: #0b0b0b;
       }
-      @supports (height: 100dvh) { #game { height:100dvh; } }
-      #menu {
-        position:absolute;
-        top:0;
-        left:0;
-        width:100%;
-      background:rgba(10,10,25,0.8);
-      display:flex;
-      flex-direction:column;
-      font-family:sans-serif;
-      align-items:center;
-    }
-    #modeToggle { width:100%; }
-    .menu-row {
-      display:flex;
-      justify-content:center;
-      width:100%;
-    }
-    #menu button {
-      margin:4px;
-      background:#222;
-      color:#fff;
-      border:2px solid #fff;
-      font-size:32px;
-      padding:16px;
-      border-radius:4px;
-      touch-action:manipulation;
-      user-select:none;
-    }
-      #menu button.active { background:#fff; color:#000; }
-      #menu button:disabled { opacity:0.3; }
+      #game {
+        width: 100vw;
+        height: 100vh;
+      }
     </style>
   </head>
   <body>
-    <div id="menu">
-      <button id="modeToggle" class="active">Place</button>
-      <div id="objectMenu" class="menu-row">
-        <button data-type="dynamite">🧨</button>
-        <button data-type="seed">🌱</button>
-      <button data-type="ball">⚽</button>
-      <button data-type="bot">🤖</button>
-      <button data-type="spring">🌀</button>
-      <button data-type="magnet">🧲</button>
-    </div>
-    <div id="materialMenu" class="menu-row">
-      <button data-type="sand">🏖️</button>
-      <button data-type="water">💧</button>
-      <button data-type="lava">🌋</button>
-      <button data-type="soil">🟫</button>
-    </div>
-    </div>
     <div id="game"></div>
-    <!-- Load Phaser from CDN to avoid missing local dependency issues -->
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
-    <script type="module">
-      const hash = Date.now();
-      const s = document.createElement('script');
-      s.type = 'module';
-      s.src = `dist/main.js?v=${hash}`;
-      document.body.appendChild(s);
-    </script>
+    <script type="module" src="/src/main.ts"></script>
   </body>
   </html>
