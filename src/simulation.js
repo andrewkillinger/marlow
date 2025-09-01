@@ -108,7 +108,7 @@ export class Simulation {
         const nx = x + d;
         if (nx < 0 || nx >= w) continue;
         const n = idx + d;
-        if (front[n] === Element.Empty) {
+        if (front[n] === Element.Empty && rnd() < 0.5) {
           move(idx, n, Element.Water);
           return;
         }

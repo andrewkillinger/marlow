@@ -22,6 +22,7 @@ const pixels = imageData.data;
 
 let current = Element.Sand;
 let paused = false;
+const BRUSH_RADIUS = 1;
 
 function render() {
   for (let i = 0; i < sim.size; i++) {
@@ -51,9 +52,16 @@ function pointerPos(evt) {
 
 function draw(evt) {
   const { x, y } = pointerPos(evt);
-  sim.set(x, y, current);
-  if (current === Element.Fire) sim.setLife(x, y, 5);
-  if (current === Element.Smoke) sim.setLife(x, y, 10);
+  for (let dx = -BRUSH_RADIUS; dx <= BRUSH_RADIUS; dx++) {
+    for (let dy = -BRUSH_RADIUS; dy <= BRUSH_RADIUS; dy++) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (!sim.inBounds(nx, ny)) continue;
+      sim.set(nx, ny, current);
+      if (current === Element.Fire) sim.setLife(nx, ny, 5);
+      if (current === Element.Smoke) sim.setLife(nx, ny, 10);
+    }
+  }
 }
 
 let drawing = false;
