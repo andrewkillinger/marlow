@@ -1,47 +1,23 @@
 body {
-  background-color: #343434;
+  margin: 0;
+  background: #222;
   color: #fff;
-  text-align: center;
-}
-
-.body {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-}
-
-#canvas {
-  background-color: #000;
-  cursor: pointer;
-}
-
-.control-panel {
-  min-width: 300px;
-  outline: 1px solid #aaa;
+  font-family: sans-serif;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  /* align-items: center; */
+  align-items: center;
 }
 
-#color-picker {
-  background-color: transparent;
-  border-radius: 5px;
+#ui {
+  margin: 0.5rem;
 }
 
-hr {
-  margin: 10px;
-  background-color: #000;
+#tools button {
+  margin-right: 0.25rem;
 }
 
-label[for=brush-size] {
-  padding: 0 5px;
-}
-
-.footer {
-  padding-top: 50px;
-}
-
-a {
-  color: white;
+canvas {
+  background: #000;
+  image-rendering: pixelated;
+  touch-action: none;
 }
