@@ -1,139 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, orientation=portrait" />
-<title>Mobile Platformer</title>
-<style>
-  html, body {
-    height: 100%;
-    margin: 0;
-    touch-action: none;
-    background: #222;
-  }
-  canvas {
-    background: #87CEEB;
-    display: block;
-    margin: 0 auto;
-    touch-action: none;
-  }
-  .controls {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 100px;
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    background: rgba(0,0,0,0.3);
-  }
-  .button {
-    width: 80px;
-    height: 80px;
-    background: rgba(255,255,255,0.5);
-    border-radius: 10px;
-    text-align: center;
-    line-height: 80px;
-    font-size: 40px;
-    user-select: none;
-  }
-</style>
-</head>
-<body>
-<canvas id="game" width="360" height="640"></canvas>
-<div class="controls">
-  <div class="button" id="left">&#9664;</div>
-  <div class="button" id="jump">&#9650;</div>
-  <div class="button" id="right">&#9654;</div>
-</div>
-<script>
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-const W = canvas.width;
-const H = canvas.height;
-
-const playerImg = new Image();
-playerImg.src = 'https://killinger.synology.me/images/kenney_pixel-platformer/Tiles/Characters/tile_0000.png';
-const groundImg = new Image();
-groundImg.src = 'https://killinger.synology.me/images/kenney_pixel-platformer/Tiles/tile_0000.png';
-
-let cameraX = 0;
-const gravity = 0.5;
-const player = { x:50, y:500, vx:0, vy:0, w:32, h:32, jumping:false };
-const groundHeight = 64;
-const platforms = [{x:0, y:H-groundHeight, w:10000, h:groundHeight}];
-for (let i=400;i<5000;i+=300) {
-  platforms.push({x:i, y:H-groundHeight-80, w:100, h:20});
-}
-
-function update(){
-  player.vy += gravity;
-  player.x += player.vx;
-  player.y += player.vy;
-
-  platforms.forEach(p=>{
-    if (player.x+player.w > p.x && player.x < p.x+p.w && player.y+player.h > p.y && player.y+player.h-player.vy <= p.y) {
-      player.y = p.y - player.h;
-      player.vy = 0;
-      player.jumping = false;
-    }
-  });
-
-  if (player.y > H) {
-    player.x = 50;
-    player.y = 500;
-    player.vx = player.vy = 0;
-    cameraX = 0;
-  }
-
-  if (player.x - cameraX > W/2) cameraX = player.x - W/2;
-}
-
-function draw(){
-  ctx.clearRect(0,0,W,H);
-  ctx.save();
-  ctx.translate(-cameraX,0);
-  platforms.forEach(p=>{
-    if (p.h === groundHeight) {
-      for (let i=0; i<p.w; i+=groundImg.width) {
-        ctx.drawImage(groundImg, p.x+i, p.y, groundImg.width, groundHeight);
-      }
-    } else {
-      ctx.fillStyle = '#654321';
-      ctx.fillRect(p.x, p.y, p.w, p.h);
-    }
-  });
-  ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
-  ctx.restore();
-}
-
-function loop(){
-  update();
-  draw();
-  requestAnimationFrame(loop);
-}
-requestAnimationFrame(loop);
-
-function left(on){ player.vx = on ? -2 : (player.vx<0?0:player.vx); }
-function right(on){ player.vx = on ? 2 : (player.vx>0?0:player.vx); }
-function jump(){ if(!player.jumping){ player.vy = -10; player.jumping = true; } }
-
-document.getElementById('left').addEventListener('touchstart',()=>left(true));
-document.getElementById('left').addEventListener('touchend',()=>left(false));
-document.getElementById('right').addEventListener('touchstart',()=>right(true));
-document.getElementById('right').addEventListener('touchend',()=>right(false));
-document.getElementById('jump').addEventListener('touchstart',jump);
-
-document.addEventListener('keydown',e=>{
-  if(e.key==='ArrowLeft') left(true);
-  if(e.key==='ArrowRight') right(true);
-  if(e.key==='ArrowUp'||e.key===' ') jump();
-});
-document.addEventListener('keyup',e=>{
-  if(e.key==='ArrowLeft') left(false);
-  if(e.key==='ArrowRight') right(false);
-});
-</script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Falling Sand Simulator</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <section class="body">
+      <div class="control-panel">
+        <div class="color-picker">
+          <p>Pick a color:</p>
+          <input
+            type="color"
+            name="color-picker"
+            id="color-picker"
+            value="#ffffff"
+          />
+        </div>
+        <hr />
+        <div class="rainbow-mode">
+          <p>Rainbow mode:</p>
+          <input type="checkbox" name="rainbow-mode" id="rainbow-mode" />
+          <label for="rainbow-mode">on/off</label>
+        </div>
+        <hr />
+        <div class="brush-size">
+          <p>Brush size:</p>
+          <input
+            type="range"
+            name="brush-size"
+            id="brush-size"
+            min="1"
+            max="50"
+            value="5"
+          />
+          <label for="brush-size"></label>
+        </div>
+        <hr />
+        <div class="clear-btn">
+          <button id="clear-btn">Clear canvas</button>
+        </div>
+      </div>
+      <canvas id="canvas" width="1000" height="600"></canvas>
+    </section>
+    <section class="footer">
+      Made by
+      <a target="_blank" href="https://mohanad-80.github.io/portfolio/"
+        >Mohanad Ahmed</a
+      >
+      • <a target="_blank" href="https://github.com/mohanad-80">GitHub</a> •
+      <a
+        target="_blank"
+        href="https://www.linkedin.com/in/mohanad-ahmed-691a50250/"
+        >LinkedIn</a
+      >
+      <br />
+      Copyright © <span class="year"></span>
+    </section>
+    <script src="./index.js"></script>
+    <script src="./control_panel.js"></script>
+  </body>
 </html>
