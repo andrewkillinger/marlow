@@ -1,64 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Falling Sand Simulator</title>
-    <link rel="stylesheet" href="./styles.css" />
-  </head>
-  <body>
-    <section class="body">
-      <div class="control-panel">
-        <div class="color-picker">
-          <p>Pick a color:</p>
-          <input
-            type="color"
-            name="color-picker"
-            id="color-picker"
-            value="#ffffff"
-          />
-        </div>
-        <hr />
-        <div class="rainbow-mode">
-          <p>Rainbow mode:</p>
-          <input type="checkbox" name="rainbow-mode" id="rainbow-mode" />
-          <label for="rainbow-mode">on/off</label>
-        </div>
-        <hr />
-        <div class="brush-size">
-          <p>Brush size:</p>
-          <input
-            type="range"
-            name="brush-size"
-            id="brush-size"
-            min="1"
-            max="50"
-            value="5"
-          />
-          <label for="brush-size"></label>
-        </div>
-        <hr />
-        <div class="clear-btn">
-          <button id="clear-btn">Clear canvas</button>
-        </div>
-      </div>
-      <canvas id="canvas" width="1000" height="600"></canvas>
-    </section>
-    <section class="footer">
-      Made by
-      <a target="_blank" href="https://mohanad-80.github.io/portfolio/"
-        >Mohanad Ahmed</a
-      >
-      • <a target="_blank" href="https://github.com/mohanad-80">GitHub</a> •
-      <a
-        target="_blank"
-        href="https://www.linkedin.com/in/mohanad-ahmed-691a50250/"
-        >LinkedIn</a
-      >
-      <br />
-      Copyright © <span class="year"></span>
-    </section>
-    <script src="./index.js"></script>
-    <script src="./control_panel.js"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <title>Falling Sand</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="ui">
+    <div id="tools"></div>
+    <button id="pause">Pause</button>
+    <button id="clear">Clear</button>
+  </div>
+  <canvas id="world"></canvas>
+  <script type="module" src="src/main.js"></script>
+</body>
 </html>
