@@ -9,9 +9,13 @@ const sim = new Simulation(GRID_SIZE, GRID_SIZE);
 canvas.width = GRID_SIZE;
 canvas.height = GRID_SIZE;
 
-// Scale the canvas to fit the window while preserving pixels.
-const scale = Math.min(window.innerWidth, window.innerHeight - 80) / GRID_SIZE;
-canvas.style.width = canvas.style.height = GRID_SIZE * scale + 'px';
+// Make the canvas fill the window while preserving simulation resolution.
+function resizeCanvas() {
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
 
 const imageData = ctx.createImageData(sim.width, sim.height);
 const pixels = imageData.data;
@@ -95,9 +99,4 @@ document.getElementById('pause').addEventListener('click', () => {
 
 document.getElementById('clear').addEventListener('click', () => {
   sim.clear();
-});
-
-window.addEventListener('resize', () => {
-  // resizing a running simulation is complex; easiest is to reload
-  location.reload();
 });
