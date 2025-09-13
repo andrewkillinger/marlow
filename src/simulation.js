@@ -185,6 +185,37 @@ export class Simulation {
       }
     };
 
+    const updateSeed = (x, y, idx) => {
+      // fall like sand
+      if (y + 1 < h) {
+        const below = idx + w;
+        if (front[below] === Element.Empty) {
+          move(idx, below, Element.Seed);
+          return;
+        }
+        const dir = rnd() < 0.5 ? -1 : 1;
+        const nx = x + dir;
+        if (nx >= 0 && nx < w) {
+          const diag = below + dir;
+          if (front[diag] === Element.Empty) {
+            move(idx, diag, Element.Seed);
+            return;
+          }
+        }
+      }
+      // if touching water or unable to move, sprout into plant
+      const offsets = [-1, 1, -w, w];
+      for (const off of offsets) {
+        const n = idx + off;
+        if (n < 0 || n >= front.length) continue;
+        if (front[n] === Element.Water) {
+          back[idx] = Element.Plant;
+          return;
+        }
+      }
+      back[idx] = Element.Plant;
+    };
+
     const updateSmoke = (x, y, idx) => {
       const life = lifeF[idx];
       if (life <= 0) {
@@ -224,6 +255,9 @@ export class Simulation {
             break;
           case Element.Plant:
             updatePlant(x, y, idx);
+            break;
+          case Element.Seed:
+            updateSeed(x, y, idx);
             break;
           case Element.Smoke:
             updateSmoke(x, y, idx);
