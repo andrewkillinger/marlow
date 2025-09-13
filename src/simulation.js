@@ -157,31 +157,51 @@ export class Simulation {
       }
     };
 
-    const updatePlant = (x, y, idx) => {
+    const seedBelow = (x, y, idx, chance) => {
+      if (y + 1 < h && front[idx + w] === Element.Empty && rnd() < chance) {
+        back[idx + w] = Element.Seed;
+      }
+    };
+
+    const burnCheck = (idx) => {
       const offsets = [-1, 1, -w, w];
       for (const off of offsets) {
         const n = idx + off;
         if (n < 0 || n >= front.length) continue;
-        const t = front[n];
-        if (t === Element.Fire) {
+        if (front[n] === Element.Fire) {
           back[idx] = Element.Fire;
           lifeB[idx] = 5;
-          return;
+          return true;
         }
       }
-      // grow into adjacent empty cell if touching water
-      let hasWater = false;
-      const empties = [];
-      for (const off of offsets) {
-        const n = idx + off;
-        if (n < 0 || n >= front.length) continue;
-        const t = front[n];
-        if (t === Element.Water) hasWater = true;
-        if (t === Element.Empty) empties.push(n);
+      return false;
+    };
+
+    const updatePlant = (x, y, idx) => {
+      if (burnCheck(idx)) return;
+      const life = lifeF[idx];
+      if (life > 0 && y > 0 && front[idx - w] === Element.Empty) {
+        back[idx - w] = Element.Plant;
+        lifeB[idx - w] = life - 1;
+      } else {
+        seedBelow(x, y, idx, 0.01);
       }
-      if (hasWater && empties.length > 0) {
-        const pick = empties[(rnd() * empties.length) | 0];
-        back[pick] = Element.Plant;
+    };
+
+    const updateFlower = (x, y, idx) => {
+      if (burnCheck(idx)) return;
+      seedBelow(x, y, idx, 0.005);
+    };
+
+    const updateTree = (x, y, idx) => {
+      if (burnCheck(idx)) return;
+      const life = lifeF[idx];
+      if (life > 0 && y > 0 && front[idx - w] === Element.Empty) {
+        back[idx - w] = Element.Tree;
+        lifeB[idx - w] = life - 1;
+      } else {
+        lifeB[idx] = life;
+        seedBelow(x, y, idx, 0.02);
       }
     };
 
@@ -203,17 +223,20 @@ export class Simulation {
           }
         }
       }
-      // if touching water or unable to move, sprout into plant
-      const offsets = [-1, 1, -w, w];
-      for (const off of offsets) {
-        const n = idx + off;
-        if (n < 0 || n >= front.length) continue;
-        if (front[n] === Element.Water) {
-          back[idx] = Element.Plant;
-          return;
+      // sprout where it lands
+      const roll = rnd();
+      if (roll < 0.01) {
+        back[idx] = Element.Tree;
+        lifeB[idx] = 5;
+      } else if (roll < 0.2) {
+        back[idx] = Element.Plant;
+        if (y > 0 && front[idx - w] === Element.Empty) {
+          back[idx - w] = Element.Flower;
         }
+      } else {
+        back[idx] = Element.Plant;
+        lifeB[idx] = 1 + (rnd() * 2) | 0;
       }
-      back[idx] = Element.Plant;
     };
 
     const updateSmoke = (x, y, idx) => {
@@ -255,6 +278,12 @@ export class Simulation {
             break;
           case Element.Plant:
             updatePlant(x, y, idx);
+            break;
+          case Element.Flower:
+            updateFlower(x, y, idx);
+            break;
+          case Element.Tree:
+            updateTree(x, y, idx);
             break;
           case Element.Seed:
             updateSeed(x, y, idx);

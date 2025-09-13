@@ -13,6 +13,8 @@ export const Element = Object.freeze({
   Smoke: 6,
   Oil: 7,
   Seed: 8,
+  Flower: 9,
+  Tree: 10,
 });
 
 /**
@@ -29,9 +31,17 @@ export const COLORS = {
   [Element.Smoke]: [80, 80, 80, 150],
   [Element.Oil]: [30, 30, 30, 255],
   [Element.Seed]: [139, 69, 19, 255],
+  [Element.Flower]: [255, 105, 180, 255],
+  [Element.Tree]: [101, 67, 33, 255],
 };
 
 /**
  * Elements that catch fire when touching a flame.
  */
-export const FLAMMABLE = new Set([Element.Plant, Element.Oil, Element.Seed]);
+export const FLAMMABLE = new Set([
+  Element.Plant,
+  Element.Oil,
+  Element.Seed,
+  Element.Flower,
+  Element.Tree,
+]);
