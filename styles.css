@@ -12,8 +12,8 @@ body {
   left: 0;
   width: 100%;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
   padding: 0.5rem;
   background: rgba(0, 0, 0, 0.5);
@@ -22,6 +22,17 @@ body {
 }
 
 #tools {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 0.5rem;
+}
+
+#tools button {
+  width: 100%;
+}
+
+#actions {
   display: flex;
   gap: 0.5rem;
 }
