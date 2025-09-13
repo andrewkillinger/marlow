@@ -9,10 +9,10 @@ const sim = new Simulation(GRID_SIZE, GRID_SIZE);
 canvas.width = GRID_SIZE;
 canvas.height = GRID_SIZE;
 
-// Make the canvas fill the window while preserving simulation resolution.
+// Make the canvas fill the available space while preserving simulation resolution.
 function resizeCanvas() {
-  canvas.style.width = window.innerWidth + 'px';
-  canvas.style.height = window.innerHeight + 'px';
+  canvas.style.width = '100%';
+  canvas.style.height = '100%';
 }
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
@@ -22,7 +22,7 @@ const pixels = imageData.data;
 
 let current = Element.Sand;
 let paused = false;
-const BRUSH_RADIUS = 1;
+let brushRadius = 1;
 
 function render() {
   for (let i = 0; i < sim.size; i++) {
@@ -52,8 +52,8 @@ function pointerPos(evt) {
 
 function draw(evt) {
   const { x, y } = pointerPos(evt);
-  for (let dx = -BRUSH_RADIUS; dx <= BRUSH_RADIUS; dx++) {
-    for (let dy = -BRUSH_RADIUS; dy <= BRUSH_RADIUS; dy++) {
+  for (let dx = -brushRadius; dx <= brushRadius; dx++) {
+    for (let dy = -brushRadius; dy <= brushRadius; dy++) {
       const nx = x + dx;
       const ny = y + dy;
       if (!sim.inBounds(nx, ny)) continue;
@@ -83,23 +83,32 @@ canvas.addEventListener('touchmove', (e) => {
 window.addEventListener('touchend', () => (drawing = false));
 
 // UI controls
-const tools = document.getElementById('tools');
-for (const [name, elem] of [
-  ['Sand', Element.Sand],
-  ['Water', Element.Water],
-  ['Wall', Element.Wall],
-  ['Plant', Element.Plant],
-  ['Oil', Element.Oil],
-  ['Fire', Element.Fire],
-  ['Erase', Element.Empty],
-]) {
+const materials = document.getElementById('materials');
+const materialDefs = [
+  { name: 'Sand', elem: Element.Sand, emoji: '🟫' },
+  { name: 'Water', elem: Element.Water, emoji: '💧' },
+  { name: 'Wall', elem: Element.Wall, emoji: '🧱' },
+  { name: 'Seed', elem: Element.Seed, emoji: '🌰' },
+  { name: 'Oil', elem: Element.Oil, emoji: '🛢️' },
+  { name: 'Fire', elem: Element.Fire, emoji: '🔥' },
+  { name: 'Erase', elem: Element.Empty, emoji: '❌' },
+];
+
+for (const { name, elem, emoji } of materialDefs) {
   const btn = document.createElement('button');
-  btn.textContent = name;
+  const color = COLORS[elem];
+  btn.title = name;
+  btn.textContent = emoji;
+  btn.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
   btn.addEventListener('click', () => {
     current = elem;
   });
-  tools.appendChild(btn);
+  materials.appendChild(btn);
 }
+
+document.getElementById('brush').addEventListener('input', (e) => {
+  brushRadius = parseInt(e.target.value, 10);
+});
 
 document.getElementById('pause').addEventListener('click', () => {
   paused = !paused;
