@@ -21,8 +21,9 @@ const imageData = ctx.createImageData(sim.width, sim.height);
 const pixels = imageData.data;
 
 let current = Element.Sand;
-let paused = false;
-let brushRadius = 1;
+const BRUSH_SIZES = [1, 2, 4, 8];
+let brushIndex = 0;
+let brushRadius = BRUSH_SIZES[brushIndex];
 
 function render() {
   for (let i = 0; i < sim.size; i++) {
@@ -37,7 +38,7 @@ function render() {
 }
 
 function loop() {
-  if (!paused) sim.step();
+  sim.step();
   render();
   requestAnimationFrame(loop);
 }
@@ -84,6 +85,9 @@ window.addEventListener('touchend', () => (drawing = false));
 
 // UI controls
 const materials = document.getElementById('materials');
+const materialBtn = document.getElementById('material-button');
+const brushBtn = document.getElementById('brush');
+
 const materialDefs = [
   { name: 'Sand', elem: Element.Sand, emoji: '🟫' },
   { name: 'Water', elem: Element.Water, emoji: '💧' },
@@ -102,16 +106,19 @@ for (const { name, elem, emoji } of materialDefs) {
   btn.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
   btn.addEventListener('click', () => {
     current = elem;
+    materials.classList.add('hidden');
   });
   materials.appendChild(btn);
 }
 
-document.getElementById('brush').addEventListener('input', (e) => {
-  brushRadius = parseInt(e.target.value, 10);
+materialBtn.addEventListener('click', () => {
+  materials.classList.toggle('hidden');
 });
 
-document.getElementById('pause').addEventListener('click', () => {
-  paused = !paused;
+brushBtn.addEventListener('click', () => {
+  brushIndex = (brushIndex + 1) % BRUSH_SIZES.length;
+  brushRadius = BRUSH_SIZES[brushIndex];
+  brushBtn.textContent = `Brush: ${brushRadius}`;
 });
 
 document.getElementById('clear').addEventListener('click', () => {
