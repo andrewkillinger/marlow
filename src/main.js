@@ -3,6 +3,10 @@ import { Element, COLORS } from './elements.js';
 
 const canvas = document.getElementById('world');
 const ctx = canvas.getContext('2d');
+const menu = document.getElementById('menu');
+const materials = document.getElementById('materials');
+const materialBtn = document.getElementById('material-button');
+const brushBtn = document.getElementById('brush');
 
 const GRID_SIZE = window.innerWidth < 600 ? 150 : 200;
 const sim = new Simulation(GRID_SIZE, GRID_SIZE);
@@ -11,8 +15,10 @@ canvas.height = GRID_SIZE;
 
 // Make the canvas fill the available space while preserving simulation resolution.
 function resizeCanvas() {
+  const menuHeight = menu.offsetHeight;
   canvas.style.width = '100%';
-  canvas.style.height = '100%';
+  canvas.style.height = `${window.innerHeight - menuHeight}px`;
+  materials.style.bottom = `${menuHeight + 10}px`;
 }
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
@@ -82,11 +88,6 @@ canvas.addEventListener('touchmove', (e) => {
   e.preventDefault();
 });
 window.addEventListener('touchend', () => (drawing = false));
-
-// UI controls
-const materials = document.getElementById('materials');
-const materialBtn = document.getElementById('material-button');
-const brushBtn = document.getElementById('brush');
 
 const materialDefs = [
   { name: 'Sand', elem: Element.Sand, emoji: '🟫' },
