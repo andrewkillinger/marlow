@@ -30,11 +30,29 @@ let current = Element.Sand;
 const BRUSH_SIZES = [1, 2, 4, 8];
 let brushIndex = 0;
 let brushRadius = BRUSH_SIZES[brushIndex];
+let materialsVisible = false;
 
 function render() {
   for (let i = 0; i < sim.size; i++) {
-    const c = COLORS[sim.front[i]];
+    const t = sim.front[i];
     const p = i * 4;
+    if (t === Element.Fire) {
+      const flicker = (Math.random() * 50) | 0;
+      pixels[p] = 255;
+      pixels[p + 1] = 100 + flicker;
+      pixels[p + 2] = flicker / 2;
+      pixels[p + 3] = 255;
+      continue;
+    }
+    if (t === Element.Spark) {
+      const flicker = (Math.random() * 80) | 0;
+      pixels[p] = 255;
+      pixels[p + 1] = 180 + flicker;
+      pixels[p + 2] = 80;
+      pixels[p + 3] = 255;
+      continue;
+    }
+    const c = COLORS[t];
     pixels[p] = c[0];
     pixels[p + 1] = c[1];
     pixels[p + 2] = c[2];
@@ -121,12 +139,18 @@ for (const { name, elem, emoji } of materialDefs) {
   btn.addEventListener('click', () => {
     current = elem;
     materials.classList.add('hidden');
+    materialsVisible = false;
   });
   materials.appendChild(btn);
 }
 
 materialBtn.addEventListener('click', () => {
-  materials.classList.toggle('hidden');
+  materialsVisible = !materialsVisible;
+  materials.classList.toggle('hidden', !materialsVisible);
+  if (materialsVisible) {
+    const rect = materialBtn.getBoundingClientRect();
+    materials.style.right = `${window.innerWidth - rect.right}px`;
+  }
 });
 
 brushBtn.addEventListener('click', () => {

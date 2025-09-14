@@ -15,6 +15,7 @@ export const Element = Object.freeze({
   Seed: 8,
   Flower: 9,
   Tree: 10,
+  Spark: 11,
 });
 
 /**
@@ -27,6 +28,7 @@ export const COLORS = {
   [Element.Water]: [64, 164, 223, 255],
   [Element.Wall]: [120, 120, 120, 255],
   [Element.Fire]: [255, 85, 0, 255],
+  [Element.Spark]: [255, 200, 50, 255],
   [Element.Plant]: [0, 160, 0, 255],
   [Element.Smoke]: [80, 80, 80, 150],
   [Element.Oil]: [30, 30, 30, 255],
