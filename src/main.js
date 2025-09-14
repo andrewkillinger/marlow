@@ -57,6 +57,15 @@ function pointerPos(evt) {
   return { x, y };
 }
 
+function dropSeed(x, y) {
+  for (let ny = y; ny >= 0; ny--) {
+    if (sim.get(x, ny) === Element.Empty) {
+      sim.set(x, ny, Element.Seed);
+      break;
+    }
+  }
+}
+
 function draw(evt) {
   const { x, y } = pointerPos(evt);
   for (let dx = -brushRadius; dx <= brushRadius; dx++) {
@@ -64,6 +73,10 @@ function draw(evt) {
       const nx = x + dx;
       const ny = y + dy;
       if (!sim.inBounds(nx, ny)) continue;
+      if (current === Element.Seed) {
+        dropSeed(nx, ny);
+        continue;
+      }
       sim.set(nx, ny, current);
       if (current === Element.Fire) sim.setLife(nx, ny, 5);
       if (current === Element.Smoke) sim.setLife(nx, ny, 10);
