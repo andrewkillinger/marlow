@@ -149,6 +149,10 @@ export class Simulation {
           lifeB[n] = 5;
         }
       }
+      if (Math.random() < 0.3 && y > 0 && front[idx - w] === Element.Empty) {
+        back[idx - w] = Element.Spark;
+        lifeB[idx - w] = 3;
+      }
       if (life <= 0) {
         back[idx] = Element.Smoke;
         lifeB[idx] = 5;
@@ -262,6 +266,26 @@ export class Simulation {
       lifeB[idx] = life - 1;
     };
 
+    const updateSpark = (x, y, idx) => {
+      const life = lifeF[idx];
+      if (life <= 0) {
+        back[idx] = Element.Smoke;
+        lifeB[idx] = 3;
+        return;
+      }
+      const dir = rnd() < 0.5 ? -1 : 1;
+      const nx = x + dir;
+      const up = idx - w;
+      const diag = up + dir;
+      if (y > 0 && nx >= 0 && nx < w && front[diag] === Element.Empty) {
+        move(idx, diag, Element.Spark, life - 1);
+      } else if (y > 0 && front[up] === Element.Empty) {
+        move(idx, up, Element.Spark, life - 1);
+      } else {
+        lifeB[idx] = life - 1;
+      }
+    };
+
     for (let y = yStart; y !== yEnd; y += yStep) {
       for (let x = 0; x < w; x++) {
         const idx = x + y * w;
@@ -290,6 +314,9 @@ export class Simulation {
             break;
           case Element.Smoke:
             updateSmoke(x, y, idx);
+            break;
+          case Element.Spark:
+            updateSpark(x, y, idx);
             break;
           case Element.Oil:
             updateOil(x, y, idx);
