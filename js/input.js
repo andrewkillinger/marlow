@@ -48,11 +48,10 @@ class InputHandler {
 
     getCanvasPos(clientX, clientY) {
         const rect = this.canvas.getBoundingClientRect();
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
+        // Use CSS dimensions, not canvas internal dimensions (which include devicePixelRatio)
         return {
-            x: Math.floor((clientX - rect.left) * scaleX / this.engine.pixelSize),
-            y: Math.floor((clientY - rect.top) * scaleY / this.engine.pixelSize)
+            x: Math.floor((clientX - rect.left) / this.engine.pixelSize),
+            y: Math.floor((clientY - rect.top) / this.engine.pixelSize)
         };
     }
 
@@ -84,7 +83,22 @@ class InputHandler {
     }
 
     onTouchStart(e) {
+        // Only handle touches on the canvas area (not UI)
+        const touch = e.touches[0];
+        if (!touch) return;
+
+        const rect = this.canvas.getBoundingClientRect();
+        const touchY = touch.clientY;
+
+        // Ignore if touch is in the UI area (bottom toolbar)
+        const toolbar = document.getElementById('toolbar');
+        const toolbarRect = toolbar?.getBoundingClientRect();
+        if (toolbarRect && touchY >= toolbarRect.top) {
+            return; // Let UI handle this touch
+        }
+
         e.preventDefault();
+        e.stopPropagation();
 
         if (e.touches.length === 2) {
             // Pinch gesture for brush size
@@ -95,7 +109,6 @@ class InputHandler {
         }
 
         if (e.touches.length === 1) {
-            const touch = e.touches[0];
             this.isDrawing = true;
             const pos = this.getCanvasPos(touch.clientX, touch.clientY);
             this.lastPos = pos;
