@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Elementa</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <canvas id="game-canvas"></canvas>
+
+    <div id="ui-container">
+        <div id="toolbar">
+            <div id="current-tool">
+                <div id="current-tool-icon"></div>
+                <span id="current-tool-name">Sand</span>
+            </div>
+            <div id="tool-categories">
+                <button class="category-btn active" data-category="solid">
+                    <span class="category-icon solid-icon"></span>
+                    <span>Solid</span>
+                </button>
+                <button class="category-btn" data-category="liquid">
+                    <span class="category-icon liquid-icon"></span>
+                    <span>Liquid</span>
+                </button>
+                <button class="category-btn" data-category="gas">
+                    <span class="category-icon gas-icon"></span>
+                    <span>Gas</span>
+                </button>
+                <button class="category-btn" data-category="special">
+                    <span class="category-icon special-icon"></span>
+                    <span>Special</span>
+                </button>
+                <button class="category-btn" data-category="tools">
+                    <span class="category-icon tools-icon"></span>
+                    <span>Tools</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="material-panel" class="hidden">
+            <div id="material-grid"></div>
+        </div>
+    </div>
+
+    <div id="brush-size-indicator"></div>
+
+    <script src="js/materials.js"></script>
+    <script src="js/engine.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
