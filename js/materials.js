@@ -10,7 +10,15 @@ const MaterialType = {
     FIRE: 7,
     STEAM: 8,
     SMOKE: 9,
-    PLANT: 10
+    PLANT: 10,
+    // Animals
+    ANT: 11,
+    FISH: 12,
+    BIRD: 13,
+    FROG: 14,
+    WORM: 15,
+    // Gore
+    BLOOD: 16
 };
 
 // Material categories for UI
@@ -19,6 +27,7 @@ const MaterialCategories = {
     liquid: [MaterialType.WATER, MaterialType.OIL, MaterialType.LAVA],
     gas: [MaterialType.FIRE, MaterialType.STEAM, MaterialType.SMOKE],
     special: [MaterialType.PLANT],
+    animals: [MaterialType.ANT, MaterialType.FISH, MaterialType.BIRD, MaterialType.FROG, MaterialType.WORM],
     tools: ['eraser', 'clear']
 };
 
@@ -133,6 +142,82 @@ const Materials = {
         colors: ['#7ed56f', '#6ec55f', '#8ee57f', '#5eb54f', '#4caf50'],
         behavior: 'plant',
         growthRate: 0.02
+    },
+    // Animals
+    [MaterialType.ANT]: {
+        name: 'Ant',
+        density: 0.9,
+        durability: 0.1,
+        flammable: true,
+        burnTemp: 200,
+        state: 'creature',
+        colors: ['#2a1a0a', '#3a2a1a', '#1a0a00'],
+        behavior: 'ant',
+        isAnimal: true,
+        fallDamageThreshold: 15,
+        maxHealth: 1
+    },
+    [MaterialType.FISH]: {
+        name: 'Fish',
+        density: 1.05,
+        durability: 0.2,
+        flammable: false,
+        state: 'creature',
+        colors: ['#ff9800', '#ffb74d', '#f57c00', '#ffa726'],
+        behavior: 'fish',
+        isAnimal: true,
+        fallDamageThreshold: 20,
+        maxHealth: 2,
+        needsWater: true
+    },
+    [MaterialType.BIRD]: {
+        name: 'Bird',
+        density: 0.3,
+        durability: 0.15,
+        flammable: true,
+        burnTemp: 250,
+        state: 'creature',
+        colors: ['#5c9ded', '#78b4f0', '#4a8bd4', '#90caf9'],
+        behavior: 'bird',
+        isAnimal: true,
+        fallDamageThreshold: 30,
+        maxHealth: 2
+    },
+    [MaterialType.FROG]: {
+        name: 'Frog',
+        density: 1.1,
+        durability: 0.2,
+        flammable: true,
+        burnTemp: 200,
+        state: 'creature',
+        colors: ['#4caf50', '#66bb6a', '#388e3c', '#81c784'],
+        behavior: 'frog',
+        isAnimal: true,
+        fallDamageThreshold: 25,
+        maxHealth: 3
+    },
+    [MaterialType.WORM]: {
+        name: 'Worm',
+        density: 1.2,
+        durability: 0.1,
+        flammable: true,
+        burnTemp: 180,
+        state: 'creature',
+        colors: ['#e91e63', '#f48fb1', '#c2185b', '#f06292'],
+        behavior: 'worm',
+        isAnimal: true,
+        fallDamageThreshold: 40,
+        maxHealth: 2
+    },
+    [MaterialType.BLOOD]: {
+        name: 'Blood',
+        density: 1.05,
+        durability: 0,
+        flammable: false,
+        state: 'liquid',
+        lifetime: 300,
+        colors: ['#8b0000', '#a00000', '#6b0000', '#990000', '#7a0000'],
+        behavior: 'liquid'
     }
 };
 
