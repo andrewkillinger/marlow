@@ -131,7 +131,55 @@ const Economy = (function() {
             effect: 'priceMultiplier',
             effectValue: 0.15,
             maxLevel: 15,
-            category: 'marketing',
+            category: 'helpers',
+            isEasterEgg: true
+        },
+        daddyManager: {
+            id: 'daddyManager',
+            name: "Daddy the Manager",
+            description: 'Daddy helps run the business!',
+            baseCost: 400,
+            costMultiplier: 1.4,
+            effect: 'autoIncome',
+            effectValue: 3.0,
+            maxLevel: 10,
+            category: 'helpers',
+            isEasterEgg: true
+        },
+        mommyAccountant: {
+            id: 'mommyAccountant',
+            name: "Mommy the Accountant",
+            description: 'Mommy tracks all the money!',
+            baseCost: 350,
+            costMultiplier: 1.35,
+            effect: 'priceMultiplier',
+            effectValue: 0.2,
+            maxLevel: 10,
+            category: 'helpers',
+            isEasterEgg: true
+        },
+        amelieFriend: {
+            id: 'amelieFriend',
+            name: "Amelie's Help",
+            description: 'Best friend Amelie brings more customers!',
+            baseCost: 180,
+            costMultiplier: 1.28,
+            effect: 'customerRate',
+            effectValue: 0.12,
+            maxLevel: 12,
+            category: 'helpers',
+            isEasterEgg: true
+        },
+        maddieFriend: {
+            id: 'maddieFriend',
+            name: "Maddie's Help",
+            description: 'Best friend Maddie helps make lemonade!',
+            baseCost: 200,
+            costMultiplier: 1.3,
+            effect: 'clickValue',
+            effectValue: 0.15,
+            maxLevel: 12,
+            category: 'helpers',
             isEasterEgg: true
         },
         mommyRecipe: {
