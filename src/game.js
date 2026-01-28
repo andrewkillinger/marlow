@@ -3,6 +3,18 @@
  * A Phaser 3 clicker/idle game for mobile
  */
 
+console.log('Game script loading...');
+
+// Global error handler to ensure loading screen is hidden on any error
+window.onerror = function(msg, url, lineNo, columnNo, error) {
+    console.error('Global error:', msg, 'at', url, lineNo);
+    const loading = document.getElementById('loading');
+    if (loading) {
+        loading.innerHTML = '<h1>Error Loading Game</h1><p>' + msg + '</p><p>Check console for details</p>';
+    }
+    return false;
+};
+
 // Game configuration
 const GAME_WIDTH = 390;
 const GAME_HEIGHT = 844;
@@ -123,11 +135,21 @@ class BootScene extends Phaser.Scene {
     }
 
     preload() {
-        // Create graphics for all game elements
-        this.createGameGraphics();
+        console.log('BootScene preload starting...');
+        try {
+            // Create graphics for all game elements
+            this.createGameGraphics();
+            console.log('BootScene preload complete');
+        } catch (e) {
+            console.error('BootScene preload error:', e);
+            // Hide loading screen even on error
+            const loading = document.getElementById('loading');
+            if (loading) loading.style.display = 'none';
+        }
     }
 
     createGameGraphics() {
+        console.log('Creating game graphics...');
         const g = this.make.graphics({ x: 0, y: 0, add: false });
 
         // Lemon
@@ -490,18 +512,23 @@ class BootScene extends Phaser.Scene {
     }
 
     create() {
-        soundManager.init();
+        console.log('BootScene create starting...');
 
-        // Hide loading screen early as fallback
-        try {
-            const loading = document.getElementById('loading');
-            if (loading) {
-                loading.style.display = 'none';
-            }
-        } catch (e) {
-            console.log('Could not hide loading:', e);
+        // Hide loading screen immediately
+        const loading = document.getElementById('loading');
+        if (loading) {
+            loading.style.display = 'none';
+            console.log('Loading screen hidden');
         }
 
+        try {
+            soundManager.init();
+            console.log('Sound manager initialized');
+        } catch (e) {
+            console.error('Sound init error:', e);
+        }
+
+        console.log('Starting MainMenuScene...');
         this.scene.start('MainMenuScene');
     }
 }
@@ -1899,5 +1926,15 @@ const config = {
 
 // Start the game
 window.addEventListener('load', () => {
-    const game = new Phaser.Game(config);
+    console.log('Window loaded, starting Phaser...');
+    try {
+        const game = new Phaser.Game(config);
+        console.log('Phaser game created successfully');
+    } catch (e) {
+        console.error('Failed to create Phaser game:', e);
+        const loading = document.getElementById('loading');
+        if (loading) {
+            loading.innerHTML = '<h1>Error Starting Game</h1><p>' + e.message + '</p>';
+        }
+    }
 });
