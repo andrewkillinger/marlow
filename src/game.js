@@ -136,16 +136,8 @@ class BootScene extends Phaser.Scene {
 
     preload() {
         console.log('BootScene preload starting...');
-        try {
-            // Create graphics for all game elements
-            this.createGameGraphics();
-            console.log('BootScene preload complete');
-        } catch (e) {
-            console.error('BootScene preload error:', e);
-            // Hide loading screen even on error
-            const loading = document.getElementById('loading');
-            if (loading) loading.style.display = 'none';
-        }
+        // Nothing to preload - we generate textures in create()
+        console.log('BootScene preload complete');
     }
 
     createGameGraphics() {
@@ -519,6 +511,15 @@ class BootScene extends Phaser.Scene {
         if (loading) {
             loading.style.display = 'none';
             console.log('Loading screen hidden');
+        }
+
+        try {
+            // Create all game graphics/textures now that scene is ready
+            console.log('Creating game graphics...');
+            this.createGameGraphics();
+            console.log('Game graphics created');
+        } catch (e) {
+            console.error('Graphics creation error:', e);
         }
 
         try {
