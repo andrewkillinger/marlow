@@ -1,8 +1,29 @@
 {
-  "name": "falling-sand",
+  "name": "marlows-lemonade-stand",
   "version": "1.0.0",
+  "description": "A fun clicker/idle game about running a lemonade stand, made for Marlow",
   "type": "module",
   "scripts": {
-    "test": "echo \"No tests configured\""
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "generate-icons": "node scripts/generate-icons.js",
+    "serve": "npx serve .",
+    "build": "npm run generate-icons"
+  },
+  "keywords": [
+    "game",
+    "phaser",
+    "clicker",
+    "idle",
+    "lemonade",
+    "pwa"
+  ],
+  "author": "Made with love for Marlow",
+  "license": "MIT",
+  "devDependencies": {
+    "vitest": "^1.2.0"
+  },
+  "optionalDependencies": {
+    "canvas": "^2.11.2"
   }
 }
