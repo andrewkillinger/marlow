@@ -491,6 +491,17 @@ class BootScene extends Phaser.Scene {
 
     create() {
         soundManager.init();
+
+        // Hide loading screen early as fallback
+        try {
+            const loading = document.getElementById('loading');
+            if (loading) {
+                loading.style.display = 'none';
+            }
+        } catch (e) {
+            console.log('Could not hide loading:', e);
+        }
+
         this.scene.start('MainMenuScene');
     }
 }
@@ -504,10 +515,18 @@ class MainMenuScene extends Phaser.Scene {
     create() {
         const { width, height } = this.scale;
 
-        // Background gradient
+        // Background - simple gradient using multiple rectangles
         const bg = this.add.graphics();
-        bg.fillGradientStyle(COLORS.lightBlue, COLORS.lightBlue, COLORS.lightYellow, COLORS.lightYellow, 1);
-        bg.fillRect(0, 0, width, height);
+        const steps = 20;
+        for (let i = 0; i < steps; i++) {
+            const t = i / steps;
+            const r = Math.floor(135 + (255 - 135) * t);
+            const g = Math.floor(206 + (217 - 206) * t);
+            const b = Math.floor(235 + (61 - 235) * t);
+            const color = (r << 16) | (g << 8) | b;
+            bg.fillStyle(color);
+            bg.fillRect(0, (height / steps) * i, width, height / steps + 1);
+        }
 
         // Sun
         this.add.circle(width - 60, 80, 50, COLORS.yellow);
@@ -692,10 +711,19 @@ class GameScene extends Phaser.Scene {
     }
 
     createBackground(width, height) {
-        // Sky gradient
+        // Sky gradient using multiple rectangles for compatibility
         const bg = this.add.graphics();
-        bg.fillGradientStyle(COLORS.lightBlue, COLORS.lightBlue, 0xADD8E6, 0x90EE90, 1);
-        bg.fillRect(0, 0, width, height);
+        const steps = 20;
+        for (let i = 0; i < steps; i++) {
+            const t = i / steps;
+            // Interpolate from light blue (135, 206, 235) to light green (144, 238, 144)
+            const r = Math.floor(135 + (144 - 135) * t);
+            const g = Math.floor(206 + (238 - 206) * t);
+            const b = Math.floor(235 + (144 - 235) * t);
+            const color = (r << 16) | (g << 8) | b;
+            bg.fillStyle(color);
+            bg.fillRect(0, (height / steps) * i, width, height / steps + 1);
+        }
 
         // Sun
         this.sun = this.add.circle(width - 50, 70, 40, COLORS.yellow);
