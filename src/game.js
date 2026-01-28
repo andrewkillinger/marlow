@@ -16,9 +16,20 @@ window.onerror = function(msg, url, lineNo, columnNo, error) {
     return false;
 };
 
-// Game configuration
-const GAME_WIDTH = 390;
-const GAME_HEIGHT = 844;
+// Game configuration - base dimensions (will scale dynamically)
+const BASE_WIDTH = 390;
+const BASE_HEIGHT = 844;
+
+// Helper names for the stand
+const HELPER_INFO = {
+    violetMarketing: { name: 'Violet', texture: 'violet', position: 'right' },
+    daddyManager: { name: 'Daddy', texture: 'daddy', position: 'back-left' },
+    mommyAccountant: { name: 'Mommy', texture: 'mommy', position: 'back-right' },
+    poppyHelper: { name: 'Poppy', texture: 'poppy', position: 'front-left' },
+    winnieGuard: { name: 'Winnie', texture: 'winnie', position: 'front-right' },
+    amelieFriend: { name: 'Amelie', texture: 'amelie', position: 'left' },
+    maddieFriend: { name: 'Maddie', texture: 'maddie', position: 'far-left' }
+};
 
 // Modern color palette with good contrast
 const COLORS = {
@@ -363,7 +374,7 @@ class BootScene extends Phaser.Scene {
         g.fillCircle(24, 16, 3);
         g.generateTexture('winnie', 48, 44);
 
-        // Violet (sister)
+        // Violet (sister) - purple outfit, long dark hair
         g.clear();
         g.fillStyle(COLORS.purple);
         g.fillRoundedRect(18, 38, 28, 32, 8);
@@ -382,6 +393,91 @@ class BootScene extends Phaser.Scene {
         g.fillRoundedRect(8, 42, 12, 18, 4);
         g.fillRoundedRect(44, 42, 12, 18, 4);
         g.generateTexture('violet', 64, 75);
+
+        // Daddy - blue shirt, short hair
+        g.clear();
+        g.fillStyle(COLORS.primary);
+        g.fillRoundedRect(14, 42, 36, 38, 8);
+        g.fillStyle(0xFED7AA);
+        g.fillCircle(32, 24, 20);
+        g.fillStyle(0x78350F);
+        g.fillEllipse(32, 12, 18, 8);
+        g.fillStyle(COLORS.gray900);
+        g.fillCircle(26, 22, 2);
+        g.fillCircle(38, 22, 2);
+        g.lineStyle(2, COLORS.gray900);
+        g.beginPath();
+        g.arc(32, 30, 6, 0.3, Math.PI - 0.3);
+        g.strokePath();
+        g.fillStyle(0xFED7AA);
+        g.fillRoundedRect(4, 48, 14, 22, 4);
+        g.fillRoundedRect(46, 48, 14, 22, 4);
+        g.generateTexture('daddy', 64, 85);
+
+        // Mommy - pink outfit, styled hair
+        g.clear();
+        g.fillStyle(COLORS.pink);
+        g.fillRoundedRect(16, 40, 32, 36, 8);
+        g.fillStyle(0xFED7AA);
+        g.fillCircle(32, 22, 18);
+        g.fillStyle(0x78350F);
+        g.fillEllipse(32, 10, 20, 12);
+        g.fillEllipse(22, 18, 8, 10);
+        g.fillEllipse(42, 18, 8, 10);
+        g.fillStyle(COLORS.gray900);
+        g.fillCircle(27, 20, 2);
+        g.fillCircle(37, 20, 2);
+        g.lineStyle(2, COLORS.pink);
+        g.beginPath();
+        g.arc(32, 28, 5, 0.3, Math.PI - 0.3);
+        g.strokePath();
+        g.fillStyle(0xFED7AA);
+        g.fillRoundedRect(6, 46, 14, 20, 4);
+        g.fillRoundedRect(44, 46, 14, 20, 4);
+        g.generateTexture('mommy', 64, 80);
+
+        // Amelie (friend) - teal/cyan outfit, blonde ponytail
+        g.clear();
+        g.fillStyle(COLORS.cyan);
+        g.fillRoundedRect(18, 38, 28, 32, 8);
+        g.fillStyle(0xFED7AA);
+        g.fillCircle(32, 22, 16);
+        g.fillStyle(0xFCD34D);
+        g.fillEllipse(32, 12, 16, 10);
+        g.fillEllipse(44, 16, 8, 14);
+        g.fillStyle(COLORS.gray900);
+        g.fillCircle(27, 20, 2);
+        g.fillCircle(37, 20, 2);
+        g.lineStyle(2, COLORS.cyan);
+        g.beginPath();
+        g.arc(32, 26, 5, 0.3, Math.PI - 0.3);
+        g.strokePath();
+        g.fillStyle(0xFED7AA);
+        g.fillRoundedRect(8, 42, 12, 18, 4);
+        g.fillRoundedRect(44, 42, 12, 18, 4);
+        g.generateTexture('amelie', 64, 75);
+
+        // Maddie (friend) - orange outfit, red hair
+        g.clear();
+        g.fillStyle(COLORS.orange);
+        g.fillRoundedRect(18, 38, 28, 32, 8);
+        g.fillStyle(0xFED7AA);
+        g.fillCircle(32, 22, 16);
+        g.fillStyle(0xDC2626);
+        g.fillEllipse(32, 12, 16, 10);
+        g.fillEllipse(20, 18, 8, 12);
+        g.fillEllipse(44, 18, 8, 12);
+        g.fillStyle(COLORS.gray900);
+        g.fillCircle(27, 20, 2);
+        g.fillCircle(37, 20, 2);
+        g.lineStyle(2, COLORS.orange);
+        g.beginPath();
+        g.arc(32, 26, 5, 0.3, Math.PI - 0.3);
+        g.strokePath();
+        g.fillStyle(0xFED7AA);
+        g.fillRoundedRect(8, 42, 12, 18, 4);
+        g.fillRoundedRect(44, 42, 12, 18, 4);
+        g.generateTexture('maddie', 64, 75);
 
         // Labubu
         g.clear();
@@ -429,6 +525,19 @@ class MainMenuScene extends Phaser.Scene {
     }
 
     create() {
+        this.createScene();
+
+        // Handle resize events
+        this.scale.on('resize', this.handleResize, this);
+    }
+
+    handleResize(gameSize) {
+        // Recreate scene on resize
+        this.cameras.main.setViewport(0, 0, gameSize.width, gameSize.height);
+        this.scene.restart();
+    }
+
+    createScene() {
         const { width, height } = this.scale;
 
         // Sky gradient background
@@ -457,23 +566,28 @@ class MainMenuScene extends Phaser.Scene {
         bg.fillStyle(0x4ADE80);
         bg.fillRect(0, height - 180, width, 8);
 
+        // Calculate responsive font size
+        const titleFontSize = Math.min(38, width / 10);
+
         // Title with shadow for better readability
         const titleShadow = this.add.text(width / 2 + 2, 172, "Marlow's\nLemonade Stand", {
-            fontSize: '38px',
+            fontSize: `${titleFontSize}px`,
             fontFamily: 'system-ui, -apple-system, sans-serif',
             color: '#00000033',
             align: 'center',
             fontStyle: 'bold',
-            lineSpacing: 8
+            lineSpacing: 8,
+            wordWrap: { width: width - 40, useAdvancedWrap: true }
         }).setOrigin(0.5);
 
         const title = this.add.text(width / 2, 170, "Marlow's\nLemonade Stand", {
-            fontSize: '38px',
+            fontSize: `${titleFontSize}px`,
             fontFamily: 'system-ui, -apple-system, sans-serif',
             color: '#78350F',
             align: 'center',
             fontStyle: 'bold',
-            lineSpacing: 8
+            lineSpacing: 8,
+            wordWrap: { width: width - 40, useAdvancedWrap: true }
         }).setOrigin(0.5);
 
         // Animated lemon
@@ -526,6 +640,10 @@ class MainMenuScene extends Phaser.Scene {
         cloud.add(this.add.ellipse(22, 4, 40, 24, COLORS.white));
         return cloud;
     }
+
+    shutdown() {
+        this.scale.off('resize', this.handleResize, this);
+    }
 }
 
 // Main Game Scene
@@ -535,8 +653,54 @@ class GameScene extends Phaser.Scene {
     }
 
     create() {
-        const { width, height } = this.scale;
         this.loadGame();
+        this.createSceneElements();
+
+        // Handle resize events
+        this.scale.on('resize', this.handleResize, this);
+    }
+
+    handleResize(gameSize) {
+        this.cameras.main.setViewport(0, 0, gameSize.width, gameSize.height);
+        // Reposition elements on resize
+        this.repositionElements(gameSize.width, gameSize.height);
+    }
+
+    repositionElements(width, height) {
+        // Reposition stand container
+        if (this.standContainer) {
+            this.standContainer.setPosition(width / 2, height / 2 - 30);
+        }
+
+        // Reposition money card
+        if (this.moneyCard) {
+            this.moneyCard.setPosition(width / 2, 55);
+        }
+
+        // Reposition stats text
+        if (this.statsText) {
+            this.statsText.setPosition(width / 2, 100);
+        }
+
+        // Reposition progress container
+        if (this.progressContainer) {
+            this.progressContainer.setPosition(width / 2, height / 2 + 125);
+        }
+
+        // Reposition event banner
+        if (this.eventBanner) {
+            this.eventBanner.setPosition(width / 2, 145);
+        }
+
+        // Rebuild bottom nav on resize
+        if (this.bottomNav) {
+            this.bottomNav.destroy();
+        }
+        this.createBottomNav(width, height);
+    }
+
+    createSceneElements() {
+        const { width, height } = this.scale;
         this.createBackground(width, height);
         this.createStand(width, height);
         this.createUI(width, height);
@@ -685,26 +849,67 @@ class GameScene extends Phaser.Scene {
         this.decorations = [];
         const ul = this.gameState.upgradeLevels;
 
-        if (ul.poppyHelper) {
-            const poppy = this.add.image(-85, 85, 'poppy').setScale(0.9);
-            this.standContainer.add(poppy);
-            this.decorations.push(poppy);
-            this.tweens.add({ targets: poppy, y: 80, duration: 400, yoyo: true, repeat: -1 });
-        }
-        if (ul.winnieGuard) {
-            const winnie = this.add.image(85, 85, 'winnie').setScale(0.9);
-            this.standContainer.add(winnie);
-            this.decorations.push(winnie);
-        }
-        if (ul.violetMarketing) {
-            const violet = this.add.image(55, 0, 'violet').setScale(0.75);
-            this.standContainer.add(violet);
-            this.decorations.push(violet);
-        }
+        // Helper positions and configurations
+        const helperConfigs = [
+            { id: 'poppyHelper', texture: 'poppy', x: -95, y: 95, scale: 0.85, name: 'Poppy', animate: true },
+            { id: 'winnieGuard', texture: 'winnie', x: 95, y: 95, scale: 0.85, name: 'Winnie', animate: false },
+            { id: 'violetMarketing', texture: 'violet', x: 70, y: 5, scale: 0.7, name: 'Violet', animate: false },
+            { id: 'daddyManager', texture: 'daddy', x: -45, y: -25, scale: 0.6, name: 'Daddy', animate: false },
+            { id: 'mommyAccountant', texture: 'mommy', x: 45, y: -25, scale: 0.6, name: 'Mommy', animate: false },
+            { id: 'amelieFriend', texture: 'amelie', x: -70, y: 5, scale: 0.7, name: 'Amelie', animate: false },
+            { id: 'maddieFriend', texture: 'maddie', x: -110, y: 30, scale: 0.65, name: 'Maddie', animate: false }
+        ];
+
+        helperConfigs.forEach(config => {
+            if (ul[config.id]) {
+                // Create container for helper + name
+                const helperContainer = this.add.container(config.x, config.y);
+
+                // Add helper sprite
+                const sprite = this.add.image(0, 0, config.texture).setScale(config.scale);
+                helperContainer.add(sprite);
+
+                // Add name label below helper
+                const nameLabel = this.add.text(0, 28, config.name, {
+                    fontSize: '10px',
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                    color: '#374151',
+                    fontStyle: 'bold',
+                    backgroundColor: '#FFFFFFCC',
+                    padding: { x: 4, y: 2 }
+                }).setOrigin(0.5);
+                helperContainer.add(nameLabel);
+
+                this.standContainer.add(helperContainer);
+                this.decorations.push(helperContainer);
+
+                // Add animation for Poppy
+                if (config.animate) {
+                    this.tweens.add({
+                        targets: helperContainer,
+                        y: config.y - 5,
+                        duration: 400,
+                        yoyo: true,
+                        repeat: -1
+                    });
+                }
+            }
+        });
+
+        // Labubu charm (special collectible, no name label)
         if (ul.labubuCharm) {
-            const labubu = this.add.image(-55, -45, 'labubu').setScale(0.7);
+            const labubu = this.add.image(-55, -55, 'labubu').setScale(0.65);
             this.standContainer.add(labubu);
             this.decorations.push(labubu);
+            // Add gentle floating animation
+            this.tweens.add({
+                targets: labubu,
+                y: -60,
+                duration: 1500,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
+            });
         }
     }
 
@@ -758,15 +963,16 @@ class GameScene extends Phaser.Scene {
 
         const eventBg = this.add.graphics();
         eventBg.fillStyle(COLORS.lemonYellow, 0.95);
-        eventBg.fillRoundedRect(-160, -28, 320, 56, 12);
+        eventBg.fillRoundedRect(-160, -32, 320, 64, 12);
         this.eventBanner.add(eventBg);
 
         this.eventText = this.add.text(0, 0, '', {
-            fontSize: '16px',
+            fontSize: '14px',
             fontFamily: 'system-ui, -apple-system, sans-serif',
             color: '#78350F',
             align: 'center',
-            fontStyle: 'bold'
+            fontStyle: 'bold',
+            wordWrap: { width: 300, useAdvancedWrap: true }
         }).setOrigin(0.5);
         this.eventBanner.add(this.eventText);
 
@@ -777,16 +983,24 @@ class GameScene extends Phaser.Scene {
 
     createBottomNav(width, height) {
         const navY = height - 55;
+
+        // Create container for entire nav (for easy destruction on resize)
+        this.bottomNav = this.add.container(0, 0);
+
         const navBg = this.add.graphics();
         navBg.fillStyle(COLORS.white, 0.98);
         navBg.fillRoundedRect(20, navY - 35, width - 40, 70, 20);
         navBg.lineStyle(1, COLORS.gray200);
         navBg.strokeRoundedRect(20, navY - 35, width - 40, 70, 20);
+        this.bottomNav.add(navBg);
+
+        // Calculate button spacing based on width
+        const buttonSpacing = Math.min(100, (width - 80) / 3);
 
         const buttons = [
-            { x: width / 2 - 100, label: 'Shop', icon: '🛒', callback: () => this.openShop() },
+            { x: width / 2 - buttonSpacing, label: 'Shop', icon: '🛒', callback: () => this.openShop() },
             { x: width / 2, label: 'Quests', icon: '⭐', callback: () => this.openQuests() },
-            { x: width / 2 + 100, label: 'Menu', icon: '⚙️', callback: () => this.openSettings() }
+            { x: width / 2 + buttonSpacing, label: 'Menu', icon: '⚙️', callback: () => this.openSettings() }
         ];
 
         buttons.forEach(btn => {
@@ -816,7 +1030,13 @@ class GameScene extends Phaser.Scene {
                     onComplete: btn.callback
                 });
             });
+
+            this.bottomNav.add(container);
         });
+    }
+
+    shutdown() {
+        this.scale.off('resize', this.handleResize, this);
     }
 
     createParticles() {
@@ -978,13 +1198,15 @@ class GameScene extends Phaser.Scene {
             fontSize: '18px',
             fontFamily: 'system-ui, -apple-system, sans-serif',
             color: '#FFFFFF',
-            fontStyle: 'bold'
+            fontStyle: 'bold',
+            wordWrap: { width: 250, useAdvancedWrap: true }
         }).setOrigin(0.5));
 
         banner.add(this.add.text(0, 5, quest.name, {
             fontSize: '16px',
             fontFamily: 'system-ui, -apple-system, sans-serif',
-            color: '#E9D5FF'
+            color: '#E9D5FF',
+            wordWrap: { width: 250, useAdvancedWrap: true }
         }).setOrigin(0.5));
 
         banner.add(this.add.text(0, 32, `+$${quest.reward}`, {
@@ -1313,13 +1535,15 @@ class QuestScene extends Phaser.Scene {
                 fontSize: '14px',
                 fontFamily: 'system-ui, -apple-system, sans-serif',
                 color: '#111827',
-                fontStyle: 'bold'
+                fontStyle: 'bold',
+                wordWrap: { width: width - 160, useAdvancedWrap: true }
             });
 
             this.add.text(85, y + 35, quest.description, {
                 fontSize: '12px',
                 fontFamily: 'system-ui, -apple-system, sans-serif',
-                color: '#6B7280'
+                color: '#6B7280',
+                wordWrap: { width: width - 160, useAdvancedWrap: true }
             });
 
             this.add.text(width - 50, y + 30, `$${quest.reward}`, {
@@ -1459,13 +1683,15 @@ class SettingsScene extends Phaser.Scene {
             fontSize: '20px',
             fontFamily: 'system-ui, -apple-system, sans-serif',
             color: '#EF4444',
-            fontStyle: 'bold'
+            fontStyle: 'bold',
+            wordWrap: { width: 250, useAdvancedWrap: true }
         }).setOrigin(0.5));
 
         overlay.add(this.add.text(0, -20, 'This cannot be undone!', {
             fontSize: '14px',
             fontFamily: 'system-ui, -apple-system, sans-serif',
-            color: '#6B7280'
+            color: '#6B7280',
+            wordWrap: { width: 250, useAdvancedWrap: true }
         }).setOrigin(0.5));
 
         // Yes button
@@ -1516,16 +1742,24 @@ class SettingsScene extends Phaser.Scene {
     }
 }
 
-// Phaser config
+// Phaser config - RESIZE mode fills the window dynamically
 const config = {
     type: Phaser.AUTO,
     parent: 'game-container',
     backgroundColor: '#7DD3FC',
     scale: {
-        mode: Phaser.Scale.FIT,
+        mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
-        width: GAME_WIDTH,
-        height: GAME_HEIGHT
+        width: '100%',
+        height: '100%',
+        min: {
+            width: 320,
+            height: 480
+        },
+        max: {
+            width: 600,
+            height: 1200
+        }
     },
     scene: [BootScene, MainMenuScene, GameScene, ShopScene, QuestScene, SettingsScene],
     render: {
