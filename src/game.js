@@ -513,6 +513,29 @@ class BootScene extends Phaser.Scene {
         g.strokePath();
         g.generateTexture('basketball', 36, 36);
 
+        // Steam particle (small soft circle for stand aroma)
+        g.clear();
+        g.fillStyle(0xFFFFFF);
+        g.fillCircle(6, 6, 6);
+        g.generateTexture('steamParticle', 12, 12);
+
+        // Leaf particle (small green oval)
+        g.clear();
+        g.fillStyle(0x4ADE80);
+        g.fillEllipse(8, 5, 14, 8);
+        g.generateTexture('leaf', 16, 10);
+
+        // Sun ray segment (thin triangle for rotating rays)
+        g.clear();
+        g.fillStyle(0xFCD34D);
+        g.beginPath();
+        g.moveTo(0, 4);
+        g.lineTo(40, 0);
+        g.lineTo(40, 8);
+        g.closePath();
+        g.fillPath();
+        g.generateTexture('sunRay', 40, 8);
+
         g.destroy();
         console.log('Textures created successfully');
     }
@@ -539,32 +562,68 @@ class MainMenuScene extends Phaser.Scene {
 
     createScene() {
         const { width, height } = this.scale;
+        const groundY = height - 180;
 
         // Sky gradient background
         const bg = this.add.graphics();
         for (let i = 0; i < 20; i++) {
             const t = i / 20;
             const r = Math.floor(125 + (186 - 125) * t);
-            const g = Math.floor(211 + (230 - 211) * t);
+            const gv = Math.floor(211 + (230 - 211) * t);
             const b = Math.floor(252 + (253 - 252) * t);
-            bg.fillStyle((r << 16) | (g << 8) | b);
-            bg.fillRect(0, (height / 20) * i, width, height / 20 + 1);
+            bg.fillStyle((r << 16) | (gv << 8) | b);
+            bg.fillRect(0, (groundY / 20) * i, width, groundY / 20 + 1);
         }
 
-        // Sun
-        this.add.circle(width - 50, 70, 45, 0xFCD34D);
-        this.add.circle(width - 50, 70, 35, 0xFEF3C7);
+        // Sun with rays
+        const sunX = width - 50;
+        const sunY = 70;
+        const raysContainer = this.add.container(sunX, sunY);
+        for (let i = 0; i < 10; i++) {
+            const ray = this.add.image(0, 0, 'sunRay').setOrigin(0, 0.5);
+            ray.setAlpha(0.2);
+            ray.setAngle(i * 36);
+            ray.setScale(1.4 + Math.random() * 0.5, 0.5 + Math.random() * 0.4);
+            raysContainer.add(ray);
+        }
+        this.tweens.add({
+            targets: raysContainer,
+            angle: 360,
+            duration: 90000,
+            repeat: -1
+        });
+        this.add.circle(sunX, sunY, 45, 0xFCD34D);
+        this.add.circle(sunX, sunY, 35, 0xFEF3C7);
 
-        // Clouds
-        this.createCloud(60, 80);
-        this.createCloud(200, 50);
-        this.createCloud(320, 100);
+        // Distant hills
+        const hills = this.add.graphics();
+        hills.fillStyle(0xA7F3D0, 0.5);
+        hills.beginPath();
+        hills.moveTo(0, groundY);
+        for (let x = 0; x <= width; x += 25) {
+            hills.lineTo(x, groundY - 40 - Math.sin(x * 0.015) * 25 - Math.sin(x * 0.03 + 1) * 12);
+        }
+        hills.lineTo(width, groundY);
+        hills.closePath();
+        hills.fillPath();
+
+        // Animated clouds
+        for (let i = 0; i < 3; i++) {
+            const cloud = this.createCloud(60 + i * 130, 60 + i * 20);
+            this.tweens.add({
+                targets: cloud,
+                x: width + 80,
+                duration: 55000 + i * 18000,
+                repeat: -1,
+                onRepeat: () => { cloud.x = -80; }
+            });
+        }
 
         // Ground
         bg.fillStyle(COLORS.grass);
-        bg.fillRect(0, height - 180, width, 180);
+        bg.fillRect(0, groundY, width, height - groundY);
         bg.fillStyle(0x4ADE80);
-        bg.fillRect(0, height - 180, width, 8);
+        bg.fillRect(0, groundY, width, 8);
 
         // Calculate responsive font size
         const titleFontSize = Math.min(38, width / 10);
@@ -773,28 +832,84 @@ class GameScene extends Phaser.Scene {
 
     createBackground(width, height) {
         const bg = this.add.graphics();
+        const groundY = height - 200;
 
-        // Sky gradient
-        for (let i = 0; i < 15; i++) {
-            const t = i / 15;
+        // Sky gradient (smoother with more steps)
+        for (let i = 0; i < 20; i++) {
+            const t = i / 20;
             const r = Math.floor(125 + (186 - 125) * t);
-            const g = Math.floor(211 + (230 - 211) * t);
+            const gv = Math.floor(211 + (230 - 211) * t);
             const b = Math.floor(252 + (253 - 252) * t);
-            bg.fillStyle((r << 16) | (g << 8) | b);
-            bg.fillRect(0, (height * 0.7 / 15) * i, width, height * 0.7 / 15 + 1);
+            bg.fillStyle((r << 16) | (gv << 8) | b);
+            bg.fillRect(0, (groundY / 20) * i, width, groundY / 20 + 1);
         }
 
-        // Sun
-        this.add.circle(width - 45, 60, 38, 0xFCD34D);
-        this.add.circle(width - 45, 60, 28, 0xFEF3C7);
+        // Sun with animated rays
+        const sunX = width - 45;
+        const sunY = 60;
+        this.sunRaysContainer = this.add.container(sunX, sunY);
+        for (let i = 0; i < 10; i++) {
+            const ray = this.add.image(0, 0, 'sunRay').setOrigin(0, 0.5);
+            ray.setAlpha(0.25);
+            ray.setAngle(i * 36);
+            ray.setScale(1.2 + Math.random() * 0.6, 0.6 + Math.random() * 0.4);
+            this.sunRaysContainer.add(ray);
+        }
+        this.tweens.add({
+            targets: this.sunRaysContainer,
+            angle: 360,
+            duration: 90000,
+            repeat: -1
+        });
+        // Sun core (on top of rays)
+        this.add.circle(sunX, sunY, 38, 0xFCD34D);
+        this.add.circle(sunX, sunY, 28, 0xFEF3C7);
 
-        // Clouds
+        // Distant hills (far layer, slow parallax)
+        const hillsFar = this.add.graphics();
+        hillsFar.fillStyle(0xA7F3D0, 0.5);
+        hillsFar.beginPath();
+        hillsFar.moveTo(0, groundY);
+        for (let x = 0; x <= width; x += 30) {
+            hillsFar.lineTo(x, groundY - 50 - Math.sin(x * 0.012) * 30 - Math.sin(x * 0.025 + 1) * 15);
+        }
+        hillsFar.lineTo(width, groundY);
+        hillsFar.closePath();
+        hillsFar.fillPath();
+
+        // Near hills (closer, slightly darker)
+        const hillsNear = this.add.graphics();
+        hillsNear.fillStyle(0x6EE7B7, 0.6);
+        hillsNear.beginPath();
+        hillsNear.moveTo(0, groundY);
+        for (let x = 0; x <= width; x += 20) {
+            hillsNear.lineTo(x, groundY - 25 - Math.sin(x * 0.02 + 2) * 20 - Math.sin(x * 0.04) * 10);
+        }
+        hillsNear.lineTo(width, groundY);
+        hillsNear.closePath();
+        hillsNear.fillPath();
+
+        // Far clouds (small, slow, high)
+        for (let i = 0; i < 2; i++) {
+            const cloud = this.add.container(-60 + i * 200, 30 + i * 20);
+            cloud.add(this.add.ellipse(0, 0, 35, 16, COLORS.white, 0.5));
+            cloud.add(this.add.ellipse(-10, 3, 22, 12, COLORS.white, 0.5));
+            cloud.add(this.add.ellipse(14, 2, 26, 14, COLORS.white, 0.5));
+            this.tweens.add({
+                targets: cloud,
+                x: width + 60,
+                duration: 80000 + i * 20000,
+                repeat: -1,
+                onRepeat: () => { cloud.x = -60; }
+            });
+        }
+
+        // Mid clouds (medium, medium speed)
         for (let i = 0; i < 3; i++) {
             const cloud = this.add.container(60 + i * 140, 50 + i * 25);
             cloud.add(this.add.ellipse(0, 0, 45, 24, COLORS.white));
             cloud.add(this.add.ellipse(-15, 5, 30, 18, COLORS.white));
             cloud.add(this.add.ellipse(18, 3, 35, 20, COLORS.white));
-
             this.tweens.add({
                 targets: cloud,
                 x: width + 80,
@@ -806,9 +921,37 @@ class GameScene extends Phaser.Scene {
 
         // Ground
         bg.fillStyle(COLORS.grass);
-        bg.fillRect(0, height - 200, width, 200);
+        bg.fillRect(0, groundY, width, height - groundY);
         bg.fillStyle(0x4ADE80);
-        bg.fillRect(0, height - 200, width, 6);
+        bg.fillRect(0, groundY, width, 6);
+
+        // Ambient floating leaves (only if particles enabled)
+        if (this.gameState.settings?.particlesEnabled !== false) {
+            this.ambientLeaves = this.add.particles(0, 0, 'leaf', {
+                x: { min: 0, max: width },
+                y: -10,
+                lifespan: { min: 6000, max: 10000 },
+                speedX: { min: -15, max: 15 },
+                speedY: { min: 12, max: 25 },
+                scale: { start: 0.6, end: 0.3 },
+                alpha: { start: 0.7, end: 0 },
+                rotate: { min: 0, max: 360 },
+                frequency: 2500,
+                quantity: 1
+            });
+
+            // Ambient sparkles near the stand area
+            this.ambientSparkles = this.add.particles(0, 0, 'sparkle', {
+                x: { min: width / 2 - 100, max: width / 2 + 100 },
+                y: { min: height / 2 - 80, max: height / 2 + 40 },
+                lifespan: { min: 1500, max: 3000 },
+                speed: { min: 5, max: 20 },
+                scale: { start: 0.2, end: 0 },
+                alpha: { start: 0.4, end: 0 },
+                frequency: 4000,
+                quantity: 1
+            });
+        }
     }
 
     createStand(width, height) {
@@ -838,6 +981,22 @@ class GameScene extends Phaser.Scene {
             fontStyle: 'bold'
         }).setOrigin(0.5);
         this.standContainer.add(this.standLabel);
+
+        // Steam/aroma particles rising from the stand
+        if (this.gameState.settings?.particlesEnabled !== false) {
+            this.steamParticles = this.add.particles(0, 0, 'steamParticle', {
+                x: { min: -30, max: 30 },
+                y: 10,
+                lifespan: { min: 1500, max: 2500 },
+                speedY: { min: -20, max: -10 },
+                speedX: { min: -8, max: 8 },
+                scale: { start: 0.5, end: 0.1 },
+                alpha: { start: 0.3, end: 0 },
+                frequency: 800,
+                quantity: 1
+            });
+            this.standContainer.add(this.steamParticles);
+        }
 
         this.updateDecorations();
     }
