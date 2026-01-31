@@ -816,6 +816,25 @@ class GameScene extends Phaser.Scene {
             callbackScope: this,
             loop: true
         });
+
+        // Daily challenge check timer
+        this.time.addEvent({
+            delay: 3000,
+            callback: this.checkDailyChallenges,
+            callbackScope: this,
+            loop: true
+        });
+
+        // Show streak welcome banner if new day
+        if (this.streakIsNewDay && this.streakBonusPending > 0) {
+            this.gameState.money += this.streakBonusPending;
+            this.gameState.totalEarned += this.streakBonusPending;
+            this.time.delayedCall(500, () => {
+                this.showStreakWelcome(this.gameState.streak, this.streakBonusPending);
+            });
+            this.streakBonusPending = 0;
+        }
+        this.saveGame();
     }
 
     loadGame() {
@@ -836,6 +855,24 @@ class GameScene extends Phaser.Scene {
             this.gameState = Economy.createNewSave();
         }
         soundManager.enabled = this.gameState.settings?.soundEnabled !== false;
+
+        // Check streak on load
+        const streakResult = Economy.updateStreak(
+            this.gameState.lastPlayDate || '',
+            this.gameState.streak || 0
+        );
+        this.gameState.streak = streakResult.streak;
+        this.gameState.lastPlayDate = Economy.getTodayString();
+        this.streakIsNewDay = streakResult.isNewDay;
+        this.streakBonusPending = streakResult.streakBonus;
+
+        // Reset daily stats if new day
+        const today = Economy.getTodayString();
+        if (this.gameState.dailyDate !== today) {
+            this.gameState.dailyStats = { taps: 0, earned: 0, luckyBonuses: 0, upgradesBought: 0, maxCombo: 0 };
+            this.gameState.dailyDate = today;
+            this.gameState.dailyCompleted = [];
+        }
     }
 
     saveGame() {
@@ -1152,6 +1189,30 @@ class GameScene extends Phaser.Scene {
         }).setOrigin(0.5);
         this.eventBanner.add(this.eventText);
 
+        // Streak badge (top-left corner)
+        this.streakContainer = this.add.container(50, 55);
+        if (this.gameState.streak >= 1) {
+            const streakBg = this.add.graphics();
+            streakBg.fillStyle(0xF97316, 0.9);
+            streakBg.fillRoundedRect(-30, -16, 60, 32, 10);
+            this.streakContainer.add(streakBg);
+            this.streakContainer.add(this.add.text(0, 0, `${this.gameState.streak}d`, {
+                fontSize: '14px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                color: '#FFFFFF',
+                fontStyle: 'bold'
+            }).setOrigin(0.5));
+            // Gentle pulse
+            this.tweens.add({
+                targets: this.streakContainer,
+                scale: 1.1,
+                duration: 1200,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
+            });
+        }
+
         // Combo counter display (hidden until combo >= 2)
         this.comboText = this.add.text(width / 2, height / 2 - 130, '', {
             fontSize: '32px',
@@ -1281,6 +1342,18 @@ class GameScene extends Phaser.Scene {
         this.gameState.money += clickValue;
         this.gameState.totalEarned += clickValue;
         this.gameState.totalSales++;
+
+        // Track daily stats
+        if (this.gameState.dailyStats) {
+            this.gameState.dailyStats.taps = (this.gameState.dailyStats.taps || 0) + 1;
+            this.gameState.dailyStats.earned = (this.gameState.dailyStats.earned || 0) + clickValue;
+            if (isLucky) {
+                this.gameState.dailyStats.luckyBonuses = (this.gameState.dailyStats.luckyBonuses || 0) + 1;
+            }
+            if (this.comboCount > (this.gameState.dailyStats.maxCombo || 0)) {
+                this.gameState.dailyStats.maxCombo = this.comboCount;
+            }
+        }
 
         // Floating text
         this.showFloatingText(
@@ -1415,6 +1488,94 @@ class GameScene extends Phaser.Scene {
             ease: 'Power2',
             onComplete: () => floatText.destroy()
         });
+    }
+
+    showStreakWelcome(streak, bonus) {
+        const { width, height } = this.scale;
+        const banner = this.add.container(width / 2, height / 2 - 60);
+
+        const bg = this.add.graphics();
+        bg.fillStyle(0xF97316, 0.95);
+        bg.fillRoundedRect(-140, -55, 280, 110, 16);
+        banner.add(bg);
+
+        banner.add(this.add.text(0, -30, `${streak} Day Streak!`, {
+            fontSize: '22px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#FFFFFF',
+            fontStyle: 'bold'
+        }).setOrigin(0.5));
+
+        banner.add(this.add.text(0, 5, 'Welcome back bonus:', {
+            fontSize: '14px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#FED7AA'
+        }).setOrigin(0.5));
+
+        banner.add(this.add.text(0, 30, `+$${bonus}`, {
+            fontSize: '24px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#FCD34D',
+            fontStyle: 'bold'
+        }).setOrigin(0.5));
+
+        banner.setScale(0);
+        this.tweens.add({ targets: banner, scale: 1, duration: 300, ease: 'Back.out' });
+        this.time.delayedCall(2500, () => {
+            this.tweens.add({
+                targets: banner,
+                scale: 0, alpha: 0,
+                duration: 250,
+                onComplete: () => banner.destroy()
+            });
+        });
+
+        soundManager.play('quest');
+        this.updateUI();
+    }
+
+    checkDailyChallenges() {
+        if (!this.gameState.dailyStats) return;
+
+        const today = Economy.getTodayString();
+        const challenges = Economy.getDailyChallenges(today);
+        const completed = this.gameState.dailyCompleted || [];
+
+        for (const challenge of challenges) {
+            if (completed.includes(challenge.id)) continue;
+            if (Economy.checkDailyChallenge(challenge, this.gameState.dailyStats)) {
+                completed.push(challenge.id);
+                this.gameState.dailyCompleted = completed;
+                this.gameState.money += challenge.reward;
+                this.gameState.totalEarned += challenge.reward;
+                soundManager.play('quest');
+                this.showFloatingText(
+                    this.scale.width / 2, this.scale.height / 2 - 100,
+                    `Daily: ${challenge.name} +$${challenge.reward}`,
+                    '#F97316', 18
+                );
+            }
+        }
+
+        // Check if all 3 daily challenges completed for bonus
+        if (completed.length >= 3 && !this.dailyBonusAwarded) {
+            const allDone = challenges.every(c => completed.includes(c.id));
+            if (allDone) {
+                this.dailyBonusAwarded = true;
+                this.gameState.money += Economy.DAILY_BONUS_REWARD;
+                this.gameState.totalEarned += Economy.DAILY_BONUS_REWARD;
+                this.time.delayedCall(800, () => {
+                    this.showFloatingText(
+                        this.scale.width / 2, this.scale.height / 2 - 100,
+                        `All Daily Done! +$${Economy.DAILY_BONUS_REWARD}`,
+                        '#EF4444', 22
+                    );
+                });
+            }
+        }
+
+        this.updateUI();
+        this.saveGame();
     }
 
     processIdleIncome() {
@@ -1754,6 +1915,10 @@ class ShopScene extends Phaser.Scene {
         if (this.gameState.money >= cost) {
             this.gameState.money -= cost;
             this.gameState.upgradeLevels[upgradeId] = currentLevel + 1;
+            // Track daily upgrades bought
+            if (this.gameState.dailyStats) {
+                this.gameState.dailyStats.upgradesBought = (this.gameState.dailyStats.upgradesBought || 0) + 1;
+            }
             soundManager.play('upgrade');
             this.updateMoneyDisplay();
             this.refreshUpgradeList();
@@ -1772,7 +1937,7 @@ class ShopScene extends Phaser.Scene {
     }
 }
 
-// Quest Scene
+// Quest Scene (with Quests and Daily tabs)
 class QuestScene extends Phaser.Scene {
     constructor() {
         super({ key: 'QuestScene' });
@@ -1801,54 +1966,244 @@ class QuestScene extends Phaser.Scene {
         const closeBtn = this.add.image(width - 45, 90, 'closeBtn').setScale(1.1).setInteractive({ useHandCursor: true });
         closeBtn.on('pointerdown', () => this.closeQuests());
 
-        let y = 145;
+        // Tabs: Quests | Daily
+        this.currentTab = 'quests';
+        this.createQuestTabs(width);
+
+        // Content area
+        this.contentItems = [];
+        this.refreshContent();
+    }
+
+    createQuestTabs(width) {
+        const tabs = ['quests', 'daily'];
+        const tabWidth = 120;
+        const startX = (width - tabs.length * tabWidth) / 2 + tabWidth / 2;
+
+        this.tabButtons = [];
+        tabs.forEach((tab, i) => {
+            const x = startX + i * tabWidth;
+            const isActive = tab === this.currentTab;
+
+            const btn = this.add.graphics();
+            btn.fillStyle(isActive ? COLORS.primary : COLORS.gray100, 1);
+            btn.fillRoundedRect(x - 55, 122, 110, 36, 10);
+
+            const labelText = tab === 'quests' ? 'Quests' : 'Daily';
+            const label = this.add.text(x, 140, labelText, {
+                fontSize: '14px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                color: isActive ? '#FFFFFF' : '#374151',
+                fontStyle: 'bold'
+            }).setOrigin(0.5);
+
+            const hitArea = this.add.rectangle(x, 140, 110, 36, 0x000000, 0).setInteractive({ useHandCursor: true });
+            hitArea.on('pointerdown', () => {
+                soundManager.play('click');
+                this.currentTab = tab;
+                this.refreshQuestTabs();
+                this.refreshContent();
+            });
+
+            this.tabButtons.push({ btn, label, tab, hitArea, x });
+        });
+    }
+
+    refreshQuestTabs() {
+        this.tabButtons.forEach(t => {
+            const isActive = t.tab === this.currentTab;
+            t.btn.clear();
+            t.btn.fillStyle(isActive ? COLORS.primary : COLORS.gray100, 1);
+            t.btn.fillRoundedRect(t.x - 55, 122, 110, 36, 10);
+            t.label.setColor(isActive ? '#FFFFFF' : '#374151');
+        });
+    }
+
+    refreshContent() {
+        this.contentItems.forEach(item => item.destroy());
+        this.contentItems = [];
+
+        if (this.currentTab === 'quests') {
+            this.showPermanentQuests();
+        } else {
+            this.showDailyChallenges();
+        }
+    }
+
+    showPermanentQuests() {
+        const { width, height } = this.scale;
+        let y = 175;
+
         Economy.QUESTS.forEach(quest => {
             if (y > height - 150) return;
 
             const isCompleted = this.gameState.completedQuests.includes(quest.id);
 
+            const item = this.add.container(0, 0);
+
             const bg = this.add.graphics();
             bg.fillStyle(isCompleted ? 0xECFDF5 : COLORS.gray50, 1);
             bg.fillRoundedRect(30, y, width - 60, 60, 10);
+            item.add(bg);
 
-            // Checkbox
             const checkBg = this.add.graphics();
             checkBg.fillStyle(isCompleted ? COLORS.success : COLORS.white, 1);
             checkBg.lineStyle(2, isCompleted ? COLORS.successDark : COLORS.gray300);
             checkBg.fillCircle(60, y + 30, 14);
             checkBg.strokeCircle(60, y + 30, 14);
+            item.add(checkBg);
 
             if (isCompleted) {
-                this.add.text(60, y + 30, '✓', {
-                    fontSize: '18px',
-                    color: '#FFFFFF'
-                }).setOrigin(0.5);
+                item.add(this.add.text(60, y + 30, '\u2713', {
+                    fontSize: '18px', color: '#FFFFFF'
+                }).setOrigin(0.5));
             }
 
-            this.add.text(85, y + 15, quest.name, {
+            item.add(this.add.text(85, y + 15, quest.name, {
                 fontSize: '14px',
                 fontFamily: 'system-ui, -apple-system, sans-serif',
                 color: '#111827',
                 fontStyle: 'bold',
                 wordWrap: { width: width - 160, useAdvancedWrap: true }
-            });
+            }));
 
-            this.add.text(85, y + 35, quest.description, {
+            item.add(this.add.text(85, y + 35, quest.description, {
                 fontSize: '12px',
                 fontFamily: 'system-ui, -apple-system, sans-serif',
                 color: '#6B7280',
                 wordWrap: { width: width - 160, useAdvancedWrap: true }
-            });
+            }));
 
-            this.add.text(width - 50, y + 30, `$${quest.reward}`, {
+            item.add(this.add.text(width - 50, y + 30, `$${quest.reward}`, {
                 fontSize: '14px',
                 fontFamily: 'system-ui, -apple-system, sans-serif',
                 color: '#F59E0B',
                 fontStyle: 'bold'
-            }).setOrigin(0.5);
+            }).setOrigin(0.5));
 
+            this.contentItems.push(item);
             y += 70;
         });
+    }
+
+    showDailyChallenges() {
+        const { width, height } = this.scale;
+        const today = Economy.getTodayString();
+        const challenges = Economy.getDailyChallenges(today);
+        const completed = this.gameState.dailyCompleted || [];
+        const stats = this.gameState.dailyStats || {};
+
+        let y = 175;
+
+        // Streak display
+        const streakItem = this.add.container(0, 0);
+        const streakBg = this.add.graphics();
+        streakBg.fillStyle(0xFFF7ED, 1);
+        streakBg.fillRoundedRect(30, y, width - 60, 50, 10);
+        streakBg.lineStyle(2, 0xF97316);
+        streakBg.strokeRoundedRect(30, y, width - 60, 50, 10);
+        streakItem.add(streakBg);
+
+        const streak = this.gameState.streak || 0;
+        streakItem.add(this.add.text(width / 2, y + 16, `Daily Streak: ${streak} day${streak !== 1 ? 's' : ''}`, {
+            fontSize: '16px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#F97316',
+            fontStyle: 'bold'
+        }).setOrigin(0.5));
+
+        const nextBonus = Economy.getStreakBonus(streak + 1);
+        streakItem.add(this.add.text(width / 2, y + 36, `Tomorrow's bonus: +$${nextBonus}`, {
+            fontSize: '12px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#9A3412'
+        }).setOrigin(0.5));
+
+        this.contentItems.push(streakItem);
+        y += 65;
+
+        // Daily challenges
+        challenges.forEach((challenge, idx) => {
+            if (y > height - 180) return;
+
+            const isDone = completed.includes(challenge.id);
+            const item = this.add.container(0, 0);
+
+            const bg = this.add.graphics();
+            bg.fillStyle(isDone ? 0xECFDF5 : COLORS.gray50, 1);
+            bg.fillRoundedRect(30, y, width - 60, 70, 10);
+            if (isDone) {
+                bg.lineStyle(2, COLORS.success);
+                bg.strokeRoundedRect(30, y, width - 60, 70, 10);
+            }
+            item.add(bg);
+
+            // Difficulty label
+            const diffColors = ['#10B981', '#F59E0B', '#EF4444'];
+            const diffLabels = ['Easy', 'Medium', 'Hard'];
+            item.add(this.add.text(50, y + 10, diffLabels[idx], {
+                fontSize: '11px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                color: diffColors[idx],
+                fontStyle: 'bold'
+            }));
+
+            item.add(this.add.text(50, y + 28, challenge.name, {
+                fontSize: '14px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                color: '#111827',
+                fontStyle: 'bold'
+            }));
+
+            item.add(this.add.text(50, y + 48, challenge.description, {
+                fontSize: '12px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                color: '#6B7280'
+            }));
+
+            // Progress/status
+            if (isDone) {
+                item.add(this.add.text(width - 50, y + 25, '\u2713', {
+                    fontSize: '22px',
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                    color: '#10B981',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5));
+            }
+
+            item.add(this.add.text(width - 50, y + 50, `$${challenge.reward}`, {
+                fontSize: '14px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                color: '#F59E0B',
+                fontStyle: 'bold'
+            }).setOrigin(0.5));
+
+            this.contentItems.push(item);
+            y += 80;
+        });
+
+        // All-done bonus indicator
+        const allDone = challenges.every(c => completed.includes(c.id));
+        const bonusItem = this.add.container(0, 0);
+        const bonusBg = this.add.graphics();
+        bonusBg.fillStyle(allDone ? 0xFEF3C7 : COLORS.gray50, 1);
+        bonusBg.fillRoundedRect(30, y, width - 60, 45, 10);
+        if (allDone) {
+            bonusBg.lineStyle(2, COLORS.lemonYellow);
+            bonusBg.strokeRoundedRect(30, y, width - 60, 45, 10);
+        }
+        bonusItem.add(bonusBg);
+
+        bonusItem.add(this.add.text(width / 2, y + 22, allDone
+            ? `All Complete! Bonus +$${Economy.DAILY_BONUS_REWARD} earned!`
+            : `Complete all 3 for +$${Economy.DAILY_BONUS_REWARD} bonus`, {
+            fontSize: '13px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: allDone ? '#92400E' : '#6B7280',
+            fontStyle: 'bold'
+        }).setOrigin(0.5));
+
+        this.contentItems.push(bonusItem);
     }
 
     closeQuests() {
