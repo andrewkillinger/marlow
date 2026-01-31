@@ -1223,6 +1223,54 @@ class GameScene extends Phaser.Scene {
             strokeThickness: 3
         }).setOrigin(0.5).setAlpha(0).setDepth(10);
 
+        // Active booster indicator (above bottom nav)
+        this.boosterIndicator = this.add.container(width / 2, height - 105);
+        this.boosterIndicator.setVisible(false);
+        const boostIndBg = this.add.graphics();
+        boostIndBg.fillStyle(0x000000, 0.7);
+        boostIndBg.fillRoundedRect(-80, -14, 160, 28, 10);
+        this.boosterIndicator.add(boostIndBg);
+        this.boosterIndicatorText = this.add.text(0, 0, '', {
+            fontSize: '13px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#FFFFFF',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+        this.boosterIndicator.add(this.boosterIndicatorText);
+
+        // Booster button (right side above nav)
+        this.activeBoosterData = this.gameState.activeBooster || null;
+        const boosters = Economy.getAvailableBoosters(this.gameState.totalEarned);
+        if (boosters.length > 0) {
+            this.boosterBtn = this.add.container(width - 55, height - 110);
+            const bBg = this.add.graphics();
+            bBg.fillStyle(COLORS.purple, 1);
+            bBg.fillCircle(0, 0, 24);
+            bBg.lineStyle(2, COLORS.white);
+            bBg.strokeCircle(0, 0, 24);
+            this.boosterBtn.add(bBg);
+            this.boosterBtn.add(this.add.text(0, 0, 'MIX', {
+                fontSize: '11px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                color: '#FFFFFF',
+                fontStyle: 'bold'
+            }).setOrigin(0.5));
+            const bHit = this.add.circle(0, 0, 24, 0x000000, 0).setInteractive({ useHandCursor: true });
+            this.boosterBtn.add(bHit);
+            bHit.on('pointerdown', () => {
+                soundManager.play('click');
+                this.showBoosterMenu();
+            });
+        }
+
+        // Booster update timer (1s for countdown)
+        this.time.addEvent({
+            delay: 1000,
+            callback: this.updateBoosterState,
+            callbackScope: this,
+            loop: true
+        });
+
         // Bottom navigation
         this.createBottomNav(width, height);
         this.updateUI();
@@ -1329,6 +1377,19 @@ class GameScene extends Phaser.Scene {
         // Combo bonus: +2% per combo step, capped at +50%
         const comboBonus = 1 + Math.min(this.comboCount - 1, 25) * 0.02;
         clickValue *= comboBonus;
+
+        // Active booster multiplier (tap)
+        if (this.activeBoosterData && Date.now() < this.activeBoosterData.endTime) {
+            const booster = Economy.FLAVOR_BOOSTERS.find(b => b.id === this.activeBoosterData.id);
+            if (booster && (booster.effect === 'tapMultiplier' || booster.effect === 'allMultiplier')) {
+                clickValue *= booster.value;
+            }
+        }
+
+        // Prestige multiplier
+        if (this.gameState.prestigeStars > 0) {
+            clickValue *= Economy.calculatePrestigeMultiplier(this.gameState.prestigeStars);
+        }
 
         const luckyChance = Economy.calculateLuckyChance(this.gameState.upgradeLevels);
         const isLucky = Math.random() < luckyChance;
@@ -1583,9 +1644,190 @@ class GameScene extends Phaser.Scene {
         if (autoIncome > 0) {
             let income = autoIncome * this.eventMultiplier;
             income *= Economy.calculatePriceMultiplier(this.gameState.upgradeLevels);
+
+            // Active booster multiplier (auto)
+            if (this.activeBoosterData && Date.now() < this.activeBoosterData.endTime) {
+                const booster = Economy.FLAVOR_BOOSTERS.find(b => b.id === this.activeBoosterData.id);
+                if (booster && (booster.effect === 'autoMultiplier' || booster.effect === 'allMultiplier')) {
+                    income *= booster.value;
+                }
+            }
+
+            // Prestige multiplier
+            if (this.gameState.prestigeStars > 0) {
+                income *= Economy.calculatePrestigeMultiplier(this.gameState.prestigeStars);
+            }
+
             this.gameState.money += income;
             this.gameState.totalEarned += income;
+            // Track daily auto-earned
+            if (this.gameState.dailyStats) {
+                this.gameState.dailyStats.earned = (this.gameState.dailyStats.earned || 0) + income;
+            }
             this.updateUI();
+        }
+    }
+
+    showBoosterMenu() {
+        const { width, height } = this.scale;
+        const available = Economy.getAvailableBoosters(this.gameState.totalEarned);
+        if (available.length === 0) return;
+
+        const cooldownLeft = Economy.getBoosterCooldownRemaining(this.gameState.boosterCooldown);
+        const isReady = cooldownLeft <= 0;
+
+        // Check if booster already active
+        if (this.activeBoosterData && Date.now() < this.activeBoosterData.endTime) {
+            this.showFloatingText(width / 2, height / 2 - 80, 'Booster already active!', '#EF4444', 16);
+            return;
+        }
+
+        const overlay = this.add.container(0, 0).setDepth(20);
+        overlay.add(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6));
+
+        const panel = this.add.graphics();
+        panel.fillStyle(COLORS.white, 1);
+        panel.fillRoundedRect(30, height / 2 - 160, width - 60, 320, 20);
+        overlay.add(panel);
+
+        overlay.add(this.add.text(width / 2, height / 2 - 135, 'Flavor Boost!', {
+            fontSize: '24px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#111827',
+            fontStyle: 'bold'
+        }).setOrigin(0.5));
+
+        if (!isReady) {
+            const mins = Math.floor(cooldownLeft / 60);
+            const secs = cooldownLeft % 60;
+            overlay.add(this.add.text(width / 2, height / 2 - 108, `Cooldown: ${mins}:${secs.toString().padStart(2, '0')}`, {
+                fontSize: '14px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                color: '#EF4444',
+                fontStyle: 'bold'
+            }).setOrigin(0.5));
+        }
+
+        let yPos = height / 2 - 85;
+        available.forEach(booster => {
+            const itemBg = this.add.graphics();
+            itemBg.fillStyle(isReady ? 0xF3F4F6 : 0xE5E7EB, 1);
+            itemBg.fillRoundedRect(50, yPos, width - 100, 65, 12);
+            overlay.add(itemBg);
+
+            // Color accent bar
+            const accent = this.add.graphics();
+            accent.fillStyle(booster.color, 1);
+            accent.fillRoundedRect(50, yPos, 6, 65, { tl: 12, bl: 12, tr: 0, br: 0 });
+            overlay.add(accent);
+
+            overlay.add(this.add.text(70, yPos + 12, booster.name, {
+                fontSize: '15px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                color: '#111827',
+                fontStyle: 'bold'
+            }));
+
+            overlay.add(this.add.text(70, yPos + 35, booster.description, {
+                fontSize: '12px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                color: '#6B7280'
+            }));
+
+            if (isReady) {
+                const useBg = this.add.graphics();
+                useBg.fillStyle(booster.color, 1);
+                useBg.fillRoundedRect(width - 120, yPos + 15, 55, 30, 8);
+                overlay.add(useBg);
+
+                overlay.add(this.add.text(width - 93, yPos + 30, 'Use', {
+                    fontSize: '14px',
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                    color: '#FFFFFF',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5));
+
+                const useHit = this.add.rectangle(width - 93, yPos + 30, 55, 30, 0x000000, 0).setInteractive({ useHandCursor: true });
+                overlay.add(useHit);
+                useHit.on('pointerdown', () => {
+                    this.activateBooster(booster);
+                    overlay.destroy();
+                });
+            }
+
+            yPos += 75;
+        });
+
+        // Close button
+        const closeBg = this.add.graphics();
+        closeBg.fillStyle(COLORS.gray300, 1);
+        closeBg.fillRoundedRect(width / 2 - 50, height / 2 + 120, 100, 36, 10);
+        overlay.add(closeBg);
+        overlay.add(this.add.text(width / 2, height / 2 + 138, 'Close', {
+            fontSize: '14px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#374151',
+            fontStyle: 'bold'
+        }).setOrigin(0.5));
+        const closeHit = this.add.rectangle(width / 2, height / 2 + 138, 100, 36, 0x000000, 0).setInteractive({ useHandCursor: true });
+        overlay.add(closeHit);
+        closeHit.on('pointerdown', () => {
+            soundManager.play('click');
+            overlay.destroy();
+        });
+    }
+
+    activateBooster(booster) {
+        this.activeBoosterData = {
+            id: booster.id,
+            endTime: Date.now() + booster.duration
+        };
+        this.gameState.activeBooster = this.activeBoosterData;
+        this.gameState.boosterCooldown = Date.now() + Economy.BOOSTER_COOLDOWN;
+
+        // Play activation sound
+        soundManager.play('upgrade');
+
+        // Visual feedback
+        const boosterObj = Economy.FLAVOR_BOOSTERS.find(b => b.id === booster.id);
+        if (boosterObj) {
+            this.cameras.main.flash(200,
+                (boosterObj.color >> 16) & 0xFF,
+                (boosterObj.color >> 8) & 0xFF,
+                boosterObj.color & 0xFF
+            );
+        }
+
+        this.showFloatingText(
+            this.scale.width / 2, this.scale.height / 2 - 80,
+            `${booster.name} activated!`, '#FFFFFF', 20
+        );
+
+        this.updateBoosterState();
+        this.saveGame();
+    }
+
+    updateBoosterState() {
+        if (this.activeBoosterData) {
+            const remaining = this.activeBoosterData.endTime - Date.now();
+            if (remaining > 0) {
+                const secs = Math.ceil(remaining / 1000);
+                const booster = Economy.FLAVOR_BOOSTERS.find(b => b.id === this.activeBoosterData.id);
+                const name = booster ? booster.name : 'Boost';
+                this.boosterIndicatorText.setText(`${name} ${secs}s`);
+                this.boosterIndicator.setVisible(true);
+            } else {
+                // Booster expired
+                this.activeBoosterData = null;
+                this.gameState.activeBooster = null;
+                this.boosterIndicator.setVisible(false);
+                this.showFloatingText(
+                    this.scale.width / 2, this.scale.height / 2 - 80,
+                    'Booster expired!', '#6B7280', 16
+                );
+            }
+        } else {
+            this.boosterIndicator.setVisible(false);
         }
     }
 
@@ -2228,47 +2470,51 @@ class SettingsScene extends Phaser.Scene {
         const { width, height } = this.scale;
         this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6);
 
+        // Taller card to fit prestige section
         const card = this.add.graphics();
         card.fillStyle(COLORS.white, 1);
-        card.fillRoundedRect(30, 150, width - 60, 400, 24);
+        card.fillRoundedRect(30, 100, width - 60, height - 200, 24);
 
-        this.add.text(width / 2, 185, 'Settings', {
+        this.add.text(width / 2, 135, 'Settings', {
             fontSize: '26px',
             fontFamily: 'system-ui, -apple-system, sans-serif',
             color: '#111827',
             fontStyle: 'bold'
         }).setOrigin(0.5);
 
-        const closeBtn = this.add.image(width - 55, 180, 'closeBtn').setScale(1).setInteractive({ useHandCursor: true });
+        const closeBtn = this.add.image(width - 55, 130, 'closeBtn').setScale(1).setInteractive({ useHandCursor: true });
         closeBtn.on('pointerdown', () => this.closeSettings());
 
         // Toggles
-        this.createToggle(width / 2, 250, 'Sound Effects', this.gameState.settings?.soundEnabled !== false, (val) => {
+        this.createToggle(width / 2, 195, 'Sound Effects', this.gameState.settings?.soundEnabled !== false, (val) => {
             this.gameState.settings.soundEnabled = val;
             soundManager.enabled = val;
             this.parentScene.saveGame();
         });
 
-        this.createToggle(width / 2, 310, 'Particles', this.gameState.settings?.particlesEnabled !== false, (val) => {
+        this.createToggle(width / 2, 245, 'Particles', this.gameState.settings?.particlesEnabled !== false, (val) => {
             this.gameState.settings.particlesEnabled = val;
             this.parentScene.saveGame();
         });
 
         // Stats
-        this.add.text(width / 2, 370, `Total Earned: $${this.gameState.totalEarned.toFixed(2)}`, {
+        this.add.text(width / 2, 295, `Total Earned: $${this.gameState.totalEarned.toFixed(2)}`, {
             fontSize: '14px',
             fontFamily: 'system-ui, -apple-system, sans-serif',
             color: '#6B7280'
         }).setOrigin(0.5);
 
-        this.add.text(width / 2, 395, `Total Sales: ${this.gameState.totalSales}`, {
+        this.add.text(width / 2, 318, `Total Sales: ${this.gameState.totalSales}`, {
             fontSize: '14px',
             fontFamily: 'system-ui, -apple-system, sans-serif',
             color: '#6B7280'
         }).setOrigin(0.5);
+
+        // Prestige section
+        this.createPrestigeSection(width, 360);
 
         // Reset button
-        this.createResetButton(width / 2, 470);
+        this.createResetButton(width / 2, height - 145);
     }
 
     createToggle(x, y, label, initialValue, onChange) {
@@ -2377,6 +2623,181 @@ class SettingsScene extends Phaser.Scene {
         }).setOrigin(0.5));
 
         const noHit = this.add.rectangle(70, 42, 100, 44, 0x000000, 0).setInteractive({ useHandCursor: true });
+        overlay.add(noHit);
+        noHit.on('pointerdown', () => {
+            soundManager.play('click');
+            overlay.destroy();
+        });
+    }
+
+    createPrestigeSection(width, y) {
+        // Divider
+        const divider = this.add.graphics();
+        divider.lineStyle(1, COLORS.gray200);
+        divider.beginPath();
+        divider.moveTo(50, y);
+        divider.lineTo(width - 50, y);
+        divider.strokePath();
+
+        this.add.text(width / 2, y + 22, 'Lemonade Stars', {
+            fontSize: '18px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#F59E0B',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+
+        const currentStars = this.gameState.prestigeStars || 0;
+        const multiplier = Economy.calculatePrestigeMultiplier(currentStars);
+
+        // Show current stars
+        let starDisplay = '';
+        for (let i = 0; i < Math.min(currentStars, 21); i++) starDisplay += '\u2605';
+        if (currentStars === 0) starDisplay = 'No stars yet';
+
+        this.add.text(width / 2, y + 48, starDisplay, {
+            fontSize: currentStars > 0 ? '20px' : '14px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: currentStars > 0 ? '#F59E0B' : '#9CA3AF'
+        }).setOrigin(0.5);
+
+        if (currentStars > 0) {
+            this.add.text(width / 2, y + 72, `${multiplier.toFixed(1)}x income multiplier`, {
+                fontSize: '13px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                color: '#6B7280'
+            }).setOrigin(0.5);
+        }
+
+        // Prestige info and button
+        const canDo = Economy.canPrestige(this.gameState.totalEarned);
+        const starsEarned = Economy.calculatePrestigeStars(this.gameState.totalEarned);
+        const newStars = starsEarned > 0 ? starsEarned - currentStars : 0;
+        const nextMilestone = Economy.getNextPrestigeMilestone(this.gameState.totalEarned);
+
+        if (canDo && newStars > 0) {
+            const btn = this.add.graphics();
+            btn.fillStyle(COLORS.lemonYellow, 1);
+            btn.fillRoundedRect(width / 2 - 80, y + 92, 160, 44, 12);
+            btn.lineStyle(2, 0xF59E0B);
+            btn.strokeRoundedRect(width / 2 - 80, y + 92, 160, 44, 12);
+
+            this.add.text(width / 2, y + 114, `Go on Vacation! (+${newStars}\u2605)`, {
+                fontSize: '14px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                color: '#78350F',
+                fontStyle: 'bold'
+            }).setOrigin(0.5);
+
+            const hitArea = this.add.rectangle(width / 2, y + 114, 160, 44, 0x000000, 0).setInteractive({ useHandCursor: true });
+            hitArea.on('pointerdown', () => {
+                soundManager.play('click');
+                this.showPrestigeConfirm(newStars);
+            });
+        } else if (nextMilestone) {
+            this.add.text(width / 2, y + 100, `Earn $${nextMilestone.totalEarnedRequired.toLocaleString()} total\nto earn ${nextMilestone.stars}\u2605`, {
+                fontSize: '12px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                color: '#9CA3AF',
+                align: 'center'
+            }).setOrigin(0.5);
+        } else {
+            this.add.text(width / 2, y + 100, 'Max prestige reached!', {
+                fontSize: '12px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                color: '#10B981',
+                fontStyle: 'bold'
+            }).setOrigin(0.5);
+        }
+    }
+
+    showPrestigeConfirm(newStars) {
+        const { width, height } = this.scale;
+        const overlay = this.add.container(width / 2, height / 2);
+
+        overlay.add(this.add.rectangle(0, 0, width, height, 0x000000, 0.7));
+
+        const panel = this.add.graphics();
+        panel.fillStyle(COLORS.white, 1);
+        panel.fillRoundedRect(-150, -110, 300, 220, 20);
+        overlay.add(panel);
+
+        overlay.add(this.add.text(0, -80, 'Go on Vacation?', {
+            fontSize: '20px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#F59E0B',
+            fontStyle: 'bold'
+        }).setOrigin(0.5));
+
+        overlay.add(this.add.text(0, -45, `You'll earn +${newStars} Lemonade Star${newStars > 1 ? 's' : ''}!`, {
+            fontSize: '15px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#374151'
+        }).setOrigin(0.5));
+
+        overlay.add(this.add.text(0, -15, 'Your money and upgrades will\nreset, but stars are permanent!', {
+            fontSize: '13px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#6B7280',
+            align: 'center'
+        }).setOrigin(0.5));
+
+        const totalStars = (this.gameState.prestigeStars || 0) + newStars;
+        const newMult = Economy.calculatePrestigeMultiplier(totalStars);
+        overlay.add(this.add.text(0, 20, `New multiplier: ${newMult.toFixed(1)}x`, {
+            fontSize: '14px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#F59E0B',
+            fontStyle: 'bold'
+        }).setOrigin(0.5));
+
+        // Confirm button
+        const yesBg = this.add.graphics();
+        yesBg.fillStyle(COLORS.lemonYellow, 1);
+        yesBg.fillRoundedRect(-120, 50, 100, 44, 10);
+        overlay.add(yesBg);
+
+        overlay.add(this.add.text(-70, 72, 'Vacation!', {
+            fontSize: '14px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#78350F',
+            fontStyle: 'bold'
+        }).setOrigin(0.5));
+
+        const yesHit = this.add.rectangle(-70, 72, 100, 44, 0x000000, 0).setInteractive({ useHandCursor: true });
+        overlay.add(yesHit);
+        yesHit.on('pointerdown', () => {
+            // Execute prestige
+            const starsToAdd = Economy.calculatePrestigeStars(this.gameState.totalEarned);
+            this.gameState.prestigeStars = starsToAdd;
+            this.gameState.money = 0;
+            this.gameState.totalEarned = 0;
+            this.gameState.totalSales = 0;
+            this.gameState.upgradeLevels = {};
+            this.gameState.completedQuests = [];
+            this.gameState.collections = {};
+            this.gameState.luckyBonuses = 0;
+            // Keep: prestigeStars, streak, lastPlayDate, settings, dailyStats, dailyDate, dailyCompleted
+            this.parentScene.saveGame();
+            soundManager.play('levelUp');
+            // Reload the game
+            this.scene.stop();
+            this.parentScene.scene.restart();
+        });
+
+        // Cancel button
+        const noBg = this.add.graphics();
+        noBg.fillStyle(COLORS.gray300, 1);
+        noBg.fillRoundedRect(20, 50, 100, 44, 10);
+        overlay.add(noBg);
+
+        overlay.add(this.add.text(70, 72, 'Cancel', {
+            fontSize: '14px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#374151',
+            fontStyle: 'bold'
+        }).setOrigin(0.5));
+
+        const noHit = this.add.rectangle(70, 72, 100, 44, 0x000000, 0).setInteractive({ useHandCursor: true });
         overlay.add(noHit);
         noHit.on('pointerdown', () => {
             soundManager.play('click');
