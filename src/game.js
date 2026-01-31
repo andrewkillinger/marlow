@@ -118,6 +118,18 @@ class SoundManager {
                 case 'error':
                     this.playTone(200, 0.15, 'square', 0.15);
                     break;
+                case 'combo':
+                    // Rising pitch blip based on combo count
+                    this.playTone(400 + Math.min(this._comboHint || 0, 20) * 30, 0.06, 'sine', 0.1);
+                    break;
+                case 'luckyBig':
+                    // Enhanced lucky hit fanfare
+                    this.playTone(523, 0.1, 'sine', 0.2);
+                    setTimeout(() => this.playTone(659, 0.1, 'sine', 0.2), 50);
+                    setTimeout(() => this.playTone(784, 0.1, 'sine', 0.2), 100);
+                    setTimeout(() => this.playTone(1047, 0.2, 'sine', 0.25), 150);
+                    setTimeout(() => this.playTone(1319, 0.25, 'sine', 0.2), 250);
+                    break;
             }
         } catch (e) {
             console.log('Sound error:', e);
@@ -768,6 +780,11 @@ class GameScene extends Phaser.Scene {
         this.eventMultiplier = 1;
         this.activeEvent = null;
 
+        // Combo system state
+        this.comboCount = 0;
+        this.lastTapTime = 0;
+        this.comboTimeout = null;
+
         // Idle income timer
         this.time.addEvent({
             delay: 1000,
@@ -1135,6 +1152,16 @@ class GameScene extends Phaser.Scene {
         }).setOrigin(0.5);
         this.eventBanner.add(this.eventText);
 
+        // Combo counter display (hidden until combo >= 2)
+        this.comboText = this.add.text(width / 2, height / 2 - 130, '', {
+            fontSize: '32px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#F59E0B',
+            fontStyle: 'bold',
+            stroke: '#78350F',
+            strokeThickness: 3
+        }).setOrigin(0.5).setAlpha(0).setDepth(10);
+
         // Bottom navigation
         this.createBottomNav(width, height);
         this.updateUI();
@@ -1220,9 +1247,27 @@ class GameScene extends Phaser.Scene {
     onTap(pointer) {
         soundManager.play('click');
 
+        // Update combo
+        const now = Date.now();
+        if (now - this.lastTapTime < 2000) {
+            this.comboCount++;
+        } else {
+            this.comboCount = 1;
+        }
+        this.lastTapTime = now;
+
+        // Reset combo decay timer
+        if (this.comboTimeout) clearTimeout(this.comboTimeout);
+        this.comboTimeout = setTimeout(() => this.resetCombo(), 2000);
+
+        // Calculate tap value with combo bonus
         let clickValue = Economy.calculateClickValue(this.gameState.upgradeLevels);
         clickValue *= Economy.calculatePriceMultiplier(this.gameState.upgradeLevels);
         clickValue *= this.eventMultiplier;
+
+        // Combo bonus: +2% per combo step, capped at +50%
+        const comboBonus = 1 + Math.min(this.comboCount - 1, 25) * 0.02;
+        clickValue *= comboBonus;
 
         const luckyChance = Economy.calculateLuckyChance(this.gameState.upgradeLevels);
         const isLucky = Math.random() < luckyChance;
@@ -1230,32 +1275,57 @@ class GameScene extends Phaser.Scene {
         if (isLucky) {
             clickValue *= 5;
             this.gameState.luckyBonuses = (this.gameState.luckyBonuses || 0) + 1;
-            soundManager.play('coin');
+            soundManager.play('luckyBig');
         }
 
         this.gameState.money += clickValue;
         this.gameState.totalEarned += clickValue;
         this.gameState.totalSales++;
 
+        // Floating text
         this.showFloatingText(
             pointer.x, pointer.y - 30,
-            isLucky ? `+$${clickValue.toFixed(2)} 🍀` : `+$${clickValue.toFixed(2)}`,
-            isLucky ? '#F59E0B' : '#166534'
+            isLucky ? `+$${clickValue.toFixed(2)} LUCKY!` : `+$${clickValue.toFixed(2)}`,
+            isLucky ? '#F59E0B' : '#166534',
+            isLucky ? 28 : 20
         );
 
-        if (this.gameState.settings?.particlesEnabled !== false) {
-            this.coinParticles.setPosition(pointer.x, pointer.y);
-            this.coinParticles.explode(isLucky ? 6 : 2);
-            if (isLucky) {
-                this.sparkleParticles.setPosition(pointer.x, pointer.y);
-                this.sparkleParticles.explode(8);
-            }
+        // Combo sound (rising pitch)
+        if (this.comboCount >= 3) {
+            soundManager._comboHint = this.comboCount;
+            soundManager.play('combo');
         }
 
+        // Update combo display
+        this.updateComboDisplay();
+
+        // Particles
+        if (this.gameState.settings?.particlesEnabled !== false) {
+            this.coinParticles.setPosition(pointer.x, pointer.y);
+            this.coinParticles.explode(isLucky ? 8 : Math.min(2 + Math.floor(this.comboCount / 5), 6));
+
+            if (isLucky) {
+                this.sparkleParticles.setPosition(pointer.x, pointer.y);
+                this.sparkleParticles.explode(12);
+            }
+
+            // Tap ripple effect
+            this.showRipple(pointer.x, pointer.y, isLucky);
+        }
+
+        // Lucky hit screen flash
+        if (isLucky) {
+            this.cameras.main.flash(300, 255, 215, 0, false, (cam, progress) => {
+                // flash callback - no action needed
+            });
+        }
+
+        // Marlow bounce (scales with combo)
+        const bounceScale = Math.min(1.2 + this.comboCount * 0.02, 1.5);
         this.tweens.add({
             targets: this.marlow,
-            scaleX: 1.2,
-            scaleY: 1.0,
+            scaleX: bounceScale,
+            scaleY: 1.1 - (bounceScale - 1.2) * 0.5,
             duration: 60,
             yoyo: true
         });
@@ -1264,19 +1334,84 @@ class GameScene extends Phaser.Scene {
         this.checkStandUpgrade();
     }
 
-    showFloatingText(x, y, text, color) {
+    updateComboDisplay() {
+        if (this.comboCount >= 2) {
+            this.comboText.setText(`x${this.comboCount} COMBO!`);
+            this.comboText.setAlpha(1);
+
+            // Scale pulse on update
+            const pulseScale = Math.min(1 + this.comboCount * 0.03, 1.8);
+            this.tweens.add({
+                targets: this.comboText,
+                scale: pulseScale,
+                duration: 80,
+                yoyo: true,
+                ease: 'Quad.out'
+            });
+
+            // Color shifts at milestones
+            if (this.comboCount >= 20) {
+                this.comboText.setColor('#EF4444'); // Red for high combos
+            } else if (this.comboCount >= 10) {
+                this.comboText.setColor('#F97316'); // Orange
+            } else {
+                this.comboText.setColor('#F59E0B'); // Amber default
+            }
+        } else {
+            this.comboText.setAlpha(0);
+        }
+    }
+
+    resetCombo() {
+        if (this.comboCount >= 2) {
+            // Fade out combo text
+            this.tweens.add({
+                targets: this.comboText,
+                alpha: 0,
+                scale: 0.5,
+                duration: 300,
+                ease: 'Power2'
+            });
+        }
+        this.comboCount = 0;
+    }
+
+    showRipple(x, y, isLucky) {
+        const color = isLucky ? 0xFCD34D : 0xFFFFFF;
+        const maxRadius = isLucky ? 60 : 35;
+        const ripple = this.add.circle(x, y, 10, color, 0).setDepth(5);
+        ripple.setStrokeStyle(isLucky ? 3 : 2, color, 0.6);
+
+        this.tweens.add({
+            targets: ripple,
+            radius: maxRadius,
+            alpha: 0,
+            duration: isLucky ? 500 : 350,
+            ease: 'Quad.out',
+            onUpdate: () => {
+                ripple.setStrokeStyle(isLucky ? 3 : 2, color, ripple.alpha * 0.6);
+            },
+            onComplete: () => ripple.destroy()
+        });
+    }
+
+    showFloatingText(x, y, text, color, fontSize) {
+        const size = fontSize || 20;
         const floatText = this.add.text(x, y, text, {
-            fontSize: '20px',
+            fontSize: `${size}px`,
             fontFamily: 'system-ui, -apple-system, sans-serif',
             color: color,
-            fontStyle: 'bold'
-        }).setOrigin(0.5);
+            fontStyle: 'bold',
+            stroke: size > 20 ? '#000000' : undefined,
+            strokeThickness: size > 20 ? 2 : 0
+        }).setOrigin(0.5).setDepth(10);
 
         this.tweens.add({
             targets: floatText,
-            y: y - 50,
+            y: y - 60,
             alpha: 0,
-            duration: 800,
+            scale: size > 20 ? 1.3 : 1,
+            duration: 900,
             ease: 'Power2',
             onComplete: () => floatText.destroy()
         });
