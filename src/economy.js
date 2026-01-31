@@ -7,7 +7,7 @@ const Economy = (function() {
     'use strict';
 
     // Save version for migration handling
-    const SAVE_VERSION = 1;
+    const SAVE_VERSION = 2;
 
     // Base game constants
     const BASE_LEMONADE_PRICE = 0.25;
@@ -321,6 +321,63 @@ const Economy = (function() {
         }
     };
 
+    // ========================================
+    // NEW: Daily Challenge System
+    // ========================================
+
+    const DAILY_CHALLENGE_POOL = [
+        // Easy challenges (reward <= 30)
+        { id: 'tap50', name: 'Tappy Fingers', description: 'Tap 50 times today', requirement: { type: 'dailyTaps', amount: 50 }, reward: 20 },
+        { id: 'earn25', name: 'Quick Earner', description: 'Earn $25 today', requirement: { type: 'dailyEarned', amount: 25 }, reward: 15 },
+        { id: 'buy1', name: 'Smart Shopper', description: 'Buy an upgrade today', requirement: { type: 'dailyUpgrades', amount: 1 }, reward: 20 },
+        { id: 'combo5', name: 'Nice Combo', description: 'Get a 5x tap combo', requirement: { type: 'dailyCombo', amount: 5 }, reward: 25 },
+        // Medium challenges (reward 30-75)
+        { id: 'tap150', name: 'Tap Champion', description: 'Tap 150 times today', requirement: { type: 'dailyTaps', amount: 150 }, reward: 50 },
+        { id: 'earn100', name: 'Big Earner', description: 'Earn $100 today', requirement: { type: 'dailyEarned', amount: 100 }, reward: 45 },
+        { id: 'lucky1', name: 'Feeling Lucky', description: 'Get a lucky bonus today', requirement: { type: 'dailyLucky', amount: 1 }, reward: 40 },
+        { id: 'buy3', name: 'Upgrade Spree', description: 'Buy 3 upgrades today', requirement: { type: 'dailyUpgrades', amount: 3 }, reward: 60 },
+        { id: 'combo15', name: 'Combo King', description: 'Get a 15x tap combo', requirement: { type: 'dailyCombo', amount: 15 }, reward: 50 },
+        // Hard challenges (reward > 75)
+        { id: 'tap300', name: 'Tap Master', description: 'Tap 300 times today', requirement: { type: 'dailyTaps', amount: 300 }, reward: 100 },
+        { id: 'earn500', name: 'Money Machine', description: 'Earn $500 today', requirement: { type: 'dailyEarned', amount: 500 }, reward: 120 },
+        { id: 'lucky3', name: 'Lucky Streak', description: 'Get 3 lucky bonuses today', requirement: { type: 'dailyLucky', amount: 3 }, reward: 100 },
+        { id: 'combo30', name: 'Combo Legend', description: 'Get a 30x tap combo', requirement: { type: 'dailyCombo', amount: 30 }, reward: 90 },
+        { id: 'buy5', name: 'Shopping Frenzy', description: 'Buy 5 upgrades today', requirement: { type: 'dailyUpgrades', amount: 5 }, reward: 100 }
+    ];
+
+    // Bonus reward for completing all 3 daily challenges
+    const DAILY_BONUS_REWARD = 75;
+
+    // ========================================
+    // NEW: Prestige System - Lemonade Stars
+    // ========================================
+
+    const PRESTIGE_THRESHOLDS = [
+        { stars: 1, totalEarnedRequired: 10000 },
+        { stars: 2, totalEarnedRequired: 50000 },
+        { stars: 3, totalEarnedRequired: 200000 },
+        { stars: 5, totalEarnedRequired: 500000 },
+        { stars: 8, totalEarnedRequired: 1000000 },
+        { stars: 13, totalEarnedRequired: 5000000 },
+        { stars: 21, totalEarnedRequired: 10000000 }
+    ];
+
+    // ========================================
+    // NEW: Flavor Boosters
+    // ========================================
+
+    const FLAVOR_BOOSTERS = [
+        { id: 'strawberry', name: 'Strawberry Lemonade', description: '2x tap value for 60s', effect: 'tapMultiplier', value: 2, duration: 60000, color: 0xEC4899, unlockEarned: 100 },
+        { id: 'blueberry', name: 'Blueberry Blast', description: '2x auto income for 60s', effect: 'autoMultiplier', value: 2, duration: 60000, color: 0x8B5CF6, unlockEarned: 1000 },
+        { id: 'mango', name: 'Mango Madness', description: '3x ALL income for 30s', effect: 'allMultiplier', value: 3, duration: 30000, color: 0xF97316, unlockEarned: 10000 }
+    ];
+
+    const BOOSTER_COOLDOWN = 300000; // 5 minutes between boosters
+
+    // ========================================
+    // Original calculation functions
+    // ========================================
+
     /**
      * Calculate the cost of an upgrade at a specific level
      * @param {string} upgradeId - The upgrade identifier
@@ -585,6 +642,213 @@ const Economy = (function() {
         return Math.floor(LEVEL_UP_BASE * Math.pow(LEVEL_UP_MULTIPLIER, currentLevel - 1));
     }
 
+    // ========================================
+    // NEW: Daily Challenge Functions
+    // ========================================
+
+    /**
+     * Get today's date as a string (YYYY-MM-DD)
+     * @returns {string}
+     */
+    function getTodayString() {
+        return new Date().toISOString().split('T')[0];
+    }
+
+    /**
+     * Simple deterministic hash from a string (for date-seeded challenge selection)
+     * @param {string} str
+     * @returns {number}
+     */
+    function hashString(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = ((hash << 5) - hash) + str.charCodeAt(i);
+            hash |= 0;
+        }
+        return Math.abs(hash);
+    }
+
+    /**
+     * Get 3 daily challenges for a given date (deterministic selection)
+     * @param {string} dateString - Date in YYYY-MM-DD format
+     * @returns {Array} Array of 3 challenge objects
+     */
+    function getDailyChallenges(dateString) {
+        const seed = hashString(dateString);
+
+        // Split pool into difficulty tiers
+        const easy = DAILY_CHALLENGE_POOL.filter(c => c.reward <= 25);
+        const medium = DAILY_CHALLENGE_POOL.filter(c => c.reward > 25 && c.reward <= 60);
+        const hard = DAILY_CHALLENGE_POOL.filter(c => c.reward > 60);
+
+        return [
+            easy[seed % easy.length],
+            medium[(seed * 7 + 13) % medium.length],
+            hard[(seed * 13 + 37) % hard.length]
+        ];
+    }
+
+    /**
+     * Check if a daily challenge is completed
+     * @param {Object} challenge - Challenge definition
+     * @param {Object} dailyStats - Today's stats
+     * @returns {boolean}
+     */
+    function checkDailyChallenge(challenge, dailyStats) {
+        if (!challenge || !dailyStats) return false;
+        switch (challenge.requirement.type) {
+            case 'dailyTaps': return (dailyStats.taps || 0) >= challenge.requirement.amount;
+            case 'dailyEarned': return (dailyStats.earned || 0) >= challenge.requirement.amount;
+            case 'dailyLucky': return (dailyStats.luckyBonuses || 0) >= challenge.requirement.amount;
+            case 'dailyUpgrades': return (dailyStats.upgradesBought || 0) >= challenge.requirement.amount;
+            case 'dailyCombo': return (dailyStats.maxCombo || 0) >= challenge.requirement.amount;
+            default: return false;
+        }
+    }
+
+    // ========================================
+    // NEW: Streak System
+    // ========================================
+
+    /**
+     * Calculate streak bonus reward (money given on login)
+     * @param {number} streakDays - Current consecutive play days
+     * @returns {number} Bonus money reward
+     */
+    function getStreakBonus(streakDays) {
+        if (streakDays <= 0) return 0;
+        const effectiveDays = Math.min(streakDays, 30);
+        return Math.floor(10 * effectiveDays * (1 + effectiveDays * 0.1));
+    }
+
+    /**
+     * Calculate streak multiplier (small permanent income boost)
+     * @param {number} streakDays - Current consecutive play days
+     * @returns {number} Multiplier (1.0 to 1.3)
+     */
+    function getStreakMultiplier(streakDays) {
+        const effectiveDays = Math.min(streakDays, 30);
+        return 1 + effectiveDays * 0.01;
+    }
+
+    /**
+     * Update streak based on last play date
+     * @param {string} lastPlayDate - Last play date (YYYY-MM-DD)
+     * @param {number} currentStreak - Current streak count
+     * @returns {Object} { streak, isNewDay, streakBonus }
+     */
+    function updateStreak(lastPlayDate, currentStreak) {
+        const today = getTodayString();
+        if (lastPlayDate === today) {
+            return { streak: currentStreak, isNewDay: false, streakBonus: 0 };
+        }
+
+        // Check if last play was yesterday
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+        let newStreak;
+        if (lastPlayDate === yesterdayStr) {
+            newStreak = currentStreak + 1;
+        } else {
+            newStreak = 1; // Reset streak
+        }
+
+        return {
+            streak: newStreak,
+            isNewDay: true,
+            streakBonus: getStreakBonus(newStreak)
+        };
+    }
+
+    // ========================================
+    // NEW: Prestige System
+    // ========================================
+
+    /**
+     * Calculate how many prestige stars would be earned
+     * @param {number} totalEarned - Total money earned in current run
+     * @returns {number} Stars earned
+     */
+    function calculatePrestigeStars(totalEarned) {
+        let stars = 0;
+        for (const threshold of PRESTIGE_THRESHOLDS) {
+            if (totalEarned >= threshold.totalEarnedRequired) {
+                stars = threshold.stars;
+            }
+        }
+        return stars;
+    }
+
+    /**
+     * Calculate prestige multiplier from accumulated stars
+     * @param {number} stars - Total accumulated stars
+     * @returns {number} Multiplier (each star = +10%)
+     */
+    function calculatePrestigeMultiplier(stars) {
+        return 1 + stars * 0.1;
+    }
+
+    /**
+     * Check if player can prestige (minimum threshold)
+     * @param {number} totalEarned - Total money earned
+     * @returns {boolean}
+     */
+    function canPrestige(totalEarned) {
+        return totalEarned >= PRESTIGE_THRESHOLDS[0].totalEarnedRequired;
+    }
+
+    /**
+     * Get the next prestige milestone info
+     * @param {number} totalEarned - Total money earned
+     * @returns {Object|null} Next threshold or null if at max
+     */
+    function getNextPrestigeMilestone(totalEarned) {
+        for (const threshold of PRESTIGE_THRESHOLDS) {
+            if (totalEarned < threshold.totalEarnedRequired) {
+                return threshold;
+            }
+        }
+        return null;
+    }
+
+    // ========================================
+    // NEW: Flavor Booster Functions
+    // ========================================
+
+    /**
+     * Get boosters available based on total earnings
+     * @param {number} totalEarned - Total money earned
+     * @returns {Array} Available booster objects
+     */
+    function getAvailableBoosters(totalEarned) {
+        return FLAVOR_BOOSTERS.filter(b => totalEarned >= b.unlockEarned);
+    }
+
+    /**
+     * Check if booster cooldown has expired
+     * @param {number} cooldownEnd - Timestamp when cooldown ends
+     * @returns {boolean}
+     */
+    function isBoosterReady(cooldownEnd) {
+        return Date.now() >= (cooldownEnd || 0);
+    }
+
+    /**
+     * Get remaining cooldown time in seconds
+     * @param {number} cooldownEnd - Timestamp when cooldown ends
+     * @returns {number} Seconds remaining (0 if ready)
+     */
+    function getBoosterCooldownRemaining(cooldownEnd) {
+        const remaining = (cooldownEnd || 0) - Date.now();
+        return Math.max(0, Math.ceil(remaining / 1000));
+    }
+
+    // ========================================
+    // Save System
+    // ========================================
+
     /**
      * Create a new save state
      * @returns {Object} Fresh save state
@@ -604,7 +868,16 @@ const Economy = (function() {
             settings: {
                 soundEnabled: true,
                 particlesEnabled: true
-            }
+            },
+            // v2 fields
+            dailyStats: { taps: 0, earned: 0, luckyBonuses: 0, upgradesBought: 0, maxCombo: 0 },
+            dailyDate: '',
+            dailyCompleted: [],
+            streak: 0,
+            lastPlayDate: '',
+            prestigeStars: 0,
+            boosterCooldown: 0,
+            activeBooster: null
         };
     }
 
@@ -619,7 +892,20 @@ const Economy = (function() {
             return createNewSave();
         }
 
-        // Version 1 is current, no migration needed
+        // Migrate v1 to v2: add new fields with defaults
+        if (saveData.version === 1) {
+            saveData.version = 2;
+            saveData.dailyStats = saveData.dailyStats || { taps: 0, earned: 0, luckyBonuses: 0, upgradesBought: 0, maxCombo: 0 };
+            saveData.dailyDate = saveData.dailyDate || '';
+            saveData.dailyCompleted = saveData.dailyCompleted || [];
+            saveData.streak = saveData.streak || 0;
+            saveData.lastPlayDate = saveData.lastPlayDate || '';
+            saveData.prestigeStars = saveData.prestigeStars || 0;
+            saveData.boosterCooldown = saveData.boosterCooldown || 0;
+            saveData.activeBooster = saveData.activeBooster || null;
+        }
+
+        // Version 2 is current
         if (saveData.version === SAVE_VERSION) {
             return saveData;
         }
@@ -653,6 +939,11 @@ const Economy = (function() {
         COLLECTIONS,
         BASE_CLICK_VALUE,
         BASE_LEMONADE_PRICE,
+        DAILY_CHALLENGE_POOL,
+        DAILY_BONUS_REWARD,
+        PRESTIGE_THRESHOLDS,
+        FLAVOR_BOOSTERS,
+        BOOSTER_COOLDOWN,
         calculateUpgradeCost,
         calculateClickValue,
         calculateAutoIncome,
@@ -668,7 +959,21 @@ const Economy = (function() {
         getLevelUpRequirement,
         createNewSave,
         migrateSave,
-        validateSave
+        validateSave,
+        // New exports
+        getTodayString,
+        getDailyChallenges,
+        checkDailyChallenge,
+        getStreakBonus,
+        getStreakMultiplier,
+        updateStreak,
+        calculatePrestigeStars,
+        calculatePrestigeMultiplier,
+        canPrestige,
+        getNextPrestigeMilestone,
+        getAvailableBoosters,
+        isBoosterReady,
+        getBoosterCooldownRemaining
     };
 })();
 
