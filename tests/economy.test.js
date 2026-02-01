@@ -439,4 +439,372 @@ describe('Economy System', () => {
             expect(effectiveClick).toBeGreaterThan(clickValue);
         });
     });
+
+    describe('Daily Challenge System', () => {
+        it('should return 3 challenges for a given date', () => {
+            const challenges = Economy.getDailyChallenges('2026-01-31');
+            expect(challenges).toHaveLength(3);
+            challenges.forEach(c => {
+                expect(c).toHaveProperty('id');
+                expect(c).toHaveProperty('name');
+                expect(c).toHaveProperty('reward');
+                expect(c).toHaveProperty('requirement');
+            });
+        });
+
+        it('should return the same challenges for the same date', () => {
+            const a = Economy.getDailyChallenges('2026-01-15');
+            const b = Economy.getDailyChallenges('2026-01-15');
+            expect(a.map(c => c.id)).toEqual(b.map(c => c.id));
+        });
+
+        it('should return different challenges for different dates', () => {
+            const a = Economy.getDailyChallenges('2026-01-15');
+            const b = Economy.getDailyChallenges('2026-02-20');
+            // At least one challenge should differ (extremely unlikely all 3 match)
+            const aIds = a.map(c => c.id).join(',');
+            const bIds = b.map(c => c.id).join(',');
+            expect(aIds).not.toBe(bIds);
+        });
+
+        it('should include one easy, one medium, and one hard challenge', () => {
+            const challenges = Economy.getDailyChallenges('2026-06-10');
+            expect(challenges[0].reward).toBeLessThanOrEqual(25);
+            expect(challenges[1].reward).toBeGreaterThan(25);
+            expect(challenges[1].reward).toBeLessThanOrEqual(60);
+            expect(challenges[2].reward).toBeGreaterThan(60);
+        });
+
+        it('should detect completed daily challenges by taps', () => {
+            const challenge = { requirement: { type: 'dailyTaps', amount: 50 } };
+            expect(Economy.checkDailyChallenge(challenge, { taps: 49 })).toBe(false);
+            expect(Economy.checkDailyChallenge(challenge, { taps: 50 })).toBe(true);
+            expect(Economy.checkDailyChallenge(challenge, { taps: 100 })).toBe(true);
+        });
+
+        it('should detect completed daily challenges by earned', () => {
+            const challenge = { requirement: { type: 'dailyEarned', amount: 25 } };
+            expect(Economy.checkDailyChallenge(challenge, { earned: 10 })).toBe(false);
+            expect(Economy.checkDailyChallenge(challenge, { earned: 25 })).toBe(true);
+        });
+
+        it('should detect completed daily challenges by lucky bonuses', () => {
+            const challenge = { requirement: { type: 'dailyLucky', amount: 1 } };
+            expect(Economy.checkDailyChallenge(challenge, { luckyBonuses: 0 })).toBe(false);
+            expect(Economy.checkDailyChallenge(challenge, { luckyBonuses: 1 })).toBe(true);
+        });
+
+        it('should detect completed daily challenges by upgrades bought', () => {
+            const challenge = { requirement: { type: 'dailyUpgrades', amount: 3 } };
+            expect(Economy.checkDailyChallenge(challenge, { upgradesBought: 2 })).toBe(false);
+            expect(Economy.checkDailyChallenge(challenge, { upgradesBought: 3 })).toBe(true);
+        });
+
+        it('should detect completed daily challenges by max combo', () => {
+            const challenge = { requirement: { type: 'dailyCombo', amount: 15 } };
+            expect(Economy.checkDailyChallenge(challenge, { maxCombo: 10 })).toBe(false);
+            expect(Economy.checkDailyChallenge(challenge, { maxCombo: 15 })).toBe(true);
+        });
+
+        it('should handle null/undefined inputs gracefully', () => {
+            expect(Economy.checkDailyChallenge(null, {})).toBe(false);
+            expect(Economy.checkDailyChallenge({}, null)).toBe(false);
+        });
+
+        it('should handle missing stats fields as 0', () => {
+            const challenge = { requirement: { type: 'dailyTaps', amount: 1 } };
+            expect(Economy.checkDailyChallenge(challenge, {})).toBe(false);
+        });
+
+        it('should have valid DAILY_BONUS_REWARD constant', () => {
+            expect(Economy.DAILY_BONUS_REWARD).toBe(75);
+        });
+    });
+
+    describe('Streak System', () => {
+        it('should return 0 bonus for 0 streak days', () => {
+            expect(Economy.getStreakBonus(0)).toBe(0);
+        });
+
+        it('should return 0 bonus for negative streak days', () => {
+            expect(Economy.getStreakBonus(-1)).toBe(0);
+        });
+
+        it('should increase bonus with more streak days', () => {
+            const bonus1 = Economy.getStreakBonus(1);
+            const bonus5 = Economy.getStreakBonus(5);
+            const bonus10 = Economy.getStreakBonus(10);
+
+            expect(bonus1).toBeGreaterThan(0);
+            expect(bonus5).toBeGreaterThan(bonus1);
+            expect(bonus10).toBeGreaterThan(bonus5);
+        });
+
+        it('should cap effective streak days at 30', () => {
+            const bonus30 = Economy.getStreakBonus(30);
+            const bonus50 = Economy.getStreakBonus(50);
+            expect(bonus30).toBe(bonus50);
+        });
+
+        it('should calculate streak bonus correctly for day 1', () => {
+            // 10 * 1 * (1 + 1 * 0.1) = 10 * 1.1 = 11
+            expect(Economy.getStreakBonus(1)).toBe(Math.floor(10 * 1 * (1 + 1 * 0.1)));
+        });
+
+        it('should return 1.0 multiplier for 0 streak days', () => {
+            expect(Economy.getStreakMultiplier(0)).toBe(1.0);
+        });
+
+        it('should increase multiplier by 0.01 per day', () => {
+            expect(Economy.getStreakMultiplier(1)).toBeCloseTo(1.01, 5);
+            expect(Economy.getStreakMultiplier(10)).toBeCloseTo(1.10, 5);
+            expect(Economy.getStreakMultiplier(20)).toBeCloseTo(1.20, 5);
+        });
+
+        it('should cap multiplier at 30 days (1.30)', () => {
+            expect(Economy.getStreakMultiplier(30)).toBeCloseTo(1.30, 5);
+            expect(Economy.getStreakMultiplier(50)).toBeCloseTo(1.30, 5);
+        });
+
+        it('should not increment streak when playing same day', () => {
+            const today = Economy.getTodayString();
+            const result = Economy.updateStreak(today, 5);
+            expect(result.streak).toBe(5);
+            expect(result.isNewDay).toBe(false);
+            expect(result.streakBonus).toBe(0);
+        });
+
+        it('should increment streak when playing on consecutive day', () => {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+            const result = Economy.updateStreak(yesterdayStr, 3);
+            expect(result.streak).toBe(4);
+            expect(result.isNewDay).toBe(true);
+            expect(result.streakBonus).toBe(Economy.getStreakBonus(4));
+        });
+
+        it('should reset streak when missing a day', () => {
+            const twoDaysAgo = new Date();
+            twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+            const twoDaysAgoStr = twoDaysAgo.toISOString().split('T')[0];
+
+            const result = Economy.updateStreak(twoDaysAgoStr, 10);
+            expect(result.streak).toBe(1);
+            expect(result.isNewDay).toBe(true);
+            expect(result.streakBonus).toBe(Economy.getStreakBonus(1));
+        });
+
+        it('should start streak at 1 for first-time player', () => {
+            const result = Economy.updateStreak('', 0);
+            expect(result.streak).toBe(1);
+            expect(result.isNewDay).toBe(true);
+        });
+    });
+
+    describe('Prestige System', () => {
+        it('should return 0 stars below minimum threshold', () => {
+            expect(Economy.calculatePrestigeStars(0)).toBe(0);
+            expect(Economy.calculatePrestigeStars(9999)).toBe(0);
+        });
+
+        it('should return 1 star at $10,000', () => {
+            expect(Economy.calculatePrestigeStars(10000)).toBe(1);
+        });
+
+        it('should return correct stars for each threshold', () => {
+            expect(Economy.calculatePrestigeStars(50000)).toBe(2);
+            expect(Economy.calculatePrestigeStars(200000)).toBe(3);
+            expect(Economy.calculatePrestigeStars(500000)).toBe(5);
+            expect(Economy.calculatePrestigeStars(1000000)).toBe(8);
+            expect(Economy.calculatePrestigeStars(5000000)).toBe(13);
+            expect(Economy.calculatePrestigeStars(10000000)).toBe(21);
+        });
+
+        it('should return max stars beyond max threshold', () => {
+            expect(Economy.calculatePrestigeStars(99999999)).toBe(21);
+        });
+
+        it('should calculate prestige multiplier correctly', () => {
+            expect(Economy.calculatePrestigeMultiplier(0)).toBe(1.0);
+            expect(Economy.calculatePrestigeMultiplier(1)).toBeCloseTo(1.1, 5);
+            expect(Economy.calculatePrestigeMultiplier(5)).toBeCloseTo(1.5, 5);
+            expect(Economy.calculatePrestigeMultiplier(10)).toBeCloseTo(2.0, 5);
+            expect(Economy.calculatePrestigeMultiplier(21)).toBeCloseTo(3.1, 5);
+        });
+
+        it('should not allow prestige below minimum threshold', () => {
+            expect(Economy.canPrestige(0)).toBe(false);
+            expect(Economy.canPrestige(9999)).toBe(false);
+        });
+
+        it('should allow prestige at minimum threshold', () => {
+            expect(Economy.canPrestige(10000)).toBe(true);
+        });
+
+        it('should allow prestige above minimum threshold', () => {
+            expect(Economy.canPrestige(500000)).toBe(true);
+        });
+
+        it('should return next milestone below first threshold', () => {
+            const next = Economy.getNextPrestigeMilestone(0);
+            expect(next).not.toBeNull();
+            expect(next.totalEarnedRequired).toBe(10000);
+            expect(next.stars).toBe(1);
+        });
+
+        it('should return correct next milestone mid-progression', () => {
+            const next = Economy.getNextPrestigeMilestone(10000);
+            expect(next).not.toBeNull();
+            expect(next.totalEarnedRequired).toBe(50000);
+        });
+
+        it('should return null at max prestige', () => {
+            const next = Economy.getNextPrestigeMilestone(10000000);
+            expect(next).toBeNull();
+        });
+
+        it('should have PRESTIGE_THRESHOLDS in ascending order', () => {
+            for (let i = 1; i < Economy.PRESTIGE_THRESHOLDS.length; i++) {
+                expect(Economy.PRESTIGE_THRESHOLDS[i].totalEarnedRequired)
+                    .toBeGreaterThan(Economy.PRESTIGE_THRESHOLDS[i - 1].totalEarnedRequired);
+                expect(Economy.PRESTIGE_THRESHOLDS[i].stars)
+                    .toBeGreaterThan(Economy.PRESTIGE_THRESHOLDS[i - 1].stars);
+            }
+        });
+    });
+
+    describe('Flavor Booster System', () => {
+        it('should return no boosters with 0 earnings', () => {
+            const available = Economy.getAvailableBoosters(0);
+            expect(available).toHaveLength(0);
+        });
+
+        it('should unlock strawberry booster at $100', () => {
+            const available = Economy.getAvailableBoosters(100);
+            expect(available).toHaveLength(1);
+            expect(available[0].id).toBe('strawberry');
+        });
+
+        it('should unlock blueberry booster at $1,000', () => {
+            const available = Economy.getAvailableBoosters(1000);
+            expect(available).toHaveLength(2);
+            expect(available.some(b => b.id === 'blueberry')).toBe(true);
+        });
+
+        it('should unlock all boosters at $10,000', () => {
+            const available = Economy.getAvailableBoosters(10000);
+            expect(available).toHaveLength(3);
+            expect(available.some(b => b.id === 'mango')).toBe(true);
+        });
+
+        it('should report booster as ready when cooldown is 0', () => {
+            expect(Economy.isBoosterReady(0)).toBe(true);
+        });
+
+        it('should report booster as ready when cooldown is in the past', () => {
+            expect(Economy.isBoosterReady(Date.now() - 1000)).toBe(true);
+        });
+
+        it('should report booster as not ready during cooldown', () => {
+            expect(Economy.isBoosterReady(Date.now() + 60000)).toBe(false);
+        });
+
+        it('should return 0 remaining when cooldown expired', () => {
+            expect(Economy.getBoosterCooldownRemaining(0)).toBe(0);
+            expect(Economy.getBoosterCooldownRemaining(Date.now() - 5000)).toBe(0);
+        });
+
+        it('should return correct remaining seconds during cooldown', () => {
+            const futureTime = Date.now() + 60000; // 60 seconds from now
+            const remaining = Economy.getBoosterCooldownRemaining(futureTime);
+            expect(remaining).toBeGreaterThan(55);
+            expect(remaining).toBeLessThanOrEqual(60);
+        });
+
+        it('should have valid BOOSTER_COOLDOWN constant', () => {
+            expect(Economy.BOOSTER_COOLDOWN).toBe(300000);
+        });
+
+        it('should have all boosters with required properties', () => {
+            Economy.FLAVOR_BOOSTERS.forEach(booster => {
+                expect(booster).toHaveProperty('id');
+                expect(booster).toHaveProperty('name');
+                expect(booster).toHaveProperty('effect');
+                expect(booster).toHaveProperty('value');
+                expect(booster).toHaveProperty('duration');
+                expect(booster).toHaveProperty('color');
+                expect(booster).toHaveProperty('unlockEarned');
+                expect(booster.value).toBeGreaterThan(0);
+                expect(booster.duration).toBeGreaterThan(0);
+            });
+        });
+    });
+
+    describe('Save System v2', () => {
+        it('should create save with version 2', () => {
+            const save = Economy.createNewSave();
+            expect(save.version).toBe(2);
+        });
+
+        it('should include v2 fields in new save', () => {
+            const save = Economy.createNewSave();
+            expect(save.dailyStats).toEqual({ taps: 0, earned: 0, luckyBonuses: 0, upgradesBought: 0, maxCombo: 0 });
+            expect(save.dailyDate).toBe('');
+            expect(save.dailyCompleted).toEqual([]);
+            expect(save.streak).toBe(0);
+            expect(save.lastPlayDate).toBe('');
+            expect(save.prestigeStars).toBe(0);
+            expect(save.boosterCooldown).toBe(0);
+            expect(save.activeBooster).toBeNull();
+        });
+
+        it('should migrate v1 save to v2', () => {
+            const v1Save = {
+                version: 1,
+                money: 500,
+                totalEarned: 1000,
+                totalSales: 200,
+                upgradeLevels: { betterLemons: 3 },
+                completedQuests: ['firstSale'],
+                collections: {},
+                luckyBonuses: 2,
+                playTime: 3600,
+                lastSaved: Date.now(),
+                settings: { soundEnabled: true, particlesEnabled: true }
+            };
+
+            const migrated = Economy.migrateSave(v1Save);
+
+            // Should preserve v1 data
+            expect(migrated.version).toBe(2);
+            expect(migrated.money).toBe(500);
+            expect(migrated.totalEarned).toBe(1000);
+            expect(migrated.upgradeLevels).toEqual({ betterLemons: 3 });
+            expect(migrated.completedQuests).toEqual(['firstSale']);
+
+            // Should add v2 defaults
+            expect(migrated.dailyStats).toEqual({ taps: 0, earned: 0, luckyBonuses: 0, upgradesBought: 0, maxCombo: 0 });
+            expect(migrated.dailyDate).toBe('');
+            expect(migrated.dailyCompleted).toEqual([]);
+            expect(migrated.streak).toBe(0);
+            expect(migrated.lastPlayDate).toBe('');
+            expect(migrated.prestigeStars).toBe(0);
+            expect(migrated.boosterCooldown).toBe(0);
+            expect(migrated.activeBooster).toBeNull();
+        });
+
+        it('should not modify already v2 saves', () => {
+            const v2Save = Economy.createNewSave();
+            v2Save.money = 1000;
+            v2Save.streak = 5;
+            v2Save.prestigeStars = 3;
+
+            const migrated = Economy.migrateSave(v2Save);
+            expect(migrated.money).toBe(1000);
+            expect(migrated.streak).toBe(5);
+            expect(migrated.prestigeStars).toBe(3);
+        });
+    });
 });
