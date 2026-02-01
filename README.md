@@ -19,6 +19,12 @@ A fun mobile-first clicker/idle game made with Phaser 3, designed for 10-year-ol
 - **Colorful pixel art** - Cute evolving lemonade stand
 - **Offline play** - Works without internet after first load
 - **Auto-save** - Progress saved to localStorage
+- **Visual polish** - Parallax hills, animated sun rays, ambient particles, steam effects
+- **Tap combos** - Chain rapid taps for bonus multipliers
+- **Daily challenges** - 3 new challenges every day (easy, medium, hard)
+- **Play streak** - Consecutive daily play earns growing bonuses
+- **Flavor boosters** - Temporary power-ups with strategic cooldowns
+- **Prestige system** - "Go on Vacation" to reset and earn permanent star multipliers
 
 ---
 
@@ -27,6 +33,17 @@ A fun mobile-first clicker/idle game made with Phaser 3, designed for 10-year-ol
 ### Core Gameplay
 
 Tap the lemonade stand to sell lemonade and earn money! Use your earnings to buy upgrades that increase your income and automate your business.
+
+### Visual Effects
+
+The game features dynamic procedural visuals — no external image assets:
+
+- **Parallax background** — Multi-layer sky gradient, animated hills, and drifting clouds
+- **Sun rays** — Slowly rotating light beams behind the scene
+- **Ambient particles** — Floating leaves and sparkles around the stand
+- **Steam effects** — Rising steam from the lemonade stand
+- **Tap feedback** — Ripple effects and bouncing stand on each tap
+- **Combo display** — Color-shifting combo counter with pulse animations
 
 ### Progression System
 
@@ -85,6 +102,65 @@ Complete quests to earn bonus money:
 - Family Business - Get Violet, Poppy & Winnie helping (+$250)
 - Lucky Day - Get 5 lucky bonuses (+$75)
 - And more!
+
+### Tap Combo System
+
+Tap rapidly (within 2 seconds between taps) to build a combo chain:
+
+- Each combo step adds **+2% bonus** to tap income
+- Maximum combo bonus is **+50%** at 25x combo
+- Combo counter displays with color shifts: amber -> orange (10x) -> red (20x)
+- Lucky hits during combos trigger a camera flash and fanfare
+
+### Daily Challenges
+
+Three new challenges appear every day, one from each difficulty tier:
+
+- **Easy** - Simple goals like "Tap 50 times" (~$15-25 reward)
+- **Medium** - Moderate goals like "Earn $100 today" (~$40-60 reward)
+- **Hard** - Ambitious goals like "Tap 300 times" (~$90-120 reward)
+- Complete all 3 for an extra **$75 bonus**
+- View challenges in the Quest tab under "Daily"
+
+### Play Streak
+
+Playing on consecutive days builds a streak:
+
+- Each day adds **+1% income multiplier** (up to +30% at 30 days)
+- Login bonus money grows with streak length
+- Streak badge displayed in the top-left corner
+- Missing a day resets the streak to 1
+
+### Flavor Boosters
+
+Temporary power-ups with a 5-minute cooldown between uses:
+
+| Booster | Effect | Duration | Unlocks At |
+|---------|--------|----------|------------|
+| Strawberry Lemonade | 2x tap value | 60s | $100 earned |
+| Blueberry Blast | 2x auto income | 60s | $1,000 earned |
+| Mango Madness | 3x ALL income | 30s | $10,000 earned |
+
+Activate boosters via the purple "MIX" button during gameplay.
+
+### Prestige System — Lemonade Stars
+
+Once you've earned enough, "Go on Vacation" from Settings to prestige:
+
+- Resets money, upgrades, and quests
+- Keeps streak, settings, and earned **Lemonade Stars**
+- Each star provides a permanent **+10% income multiplier**
+- Stars accumulate across prestiges
+
+| Total Earned | Stars Earned |
+|-------------|-------------|
+| $10,000 | 1 |
+| $50,000 | 2 |
+| $200,000 | 3 |
+| $500,000 | 5 |
+| $1,000,000 | 8 |
+| $5,000,000 | 13 |
+| $10,000,000 | 21 |
 
 ### Random Events
 
