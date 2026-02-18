@@ -155,6 +155,152 @@ class SoundManager {
 
 const soundManager = new SoundManager();
 
+// Music Manager — procedural background music using Chris Wilson scheduler pattern
+class MusicManager {
+    constructor() {
+        this.audioContext = null;
+        this.masterGain = null;
+        this.enabled = true;
+        this.playing = false;
+        this.nextLoopTime = 0;
+        this.schedulerInterval = null;
+        this.scheduleAheadTime = 0.12; // 120ms lookahead
+
+        // Music timing: C major, 116 BPM, 4-bar loop (I-V-vi-IV)
+        this.BPM = 116;
+        this.quarterNote = 60 / this.BPM;
+        this.sixteenthNote = this.quarterNote / 4;
+        // 4 bars × 16 sixteenth notes per bar = 64 sixteenth notes
+        this.loopDuration = 64 * this.sixteenthNote;
+
+        // Melody: 64 sixteenth-note pitches in Hz (0 = rest)
+        // Bars 1-2: C major / G major phrasing
+        // Bars 3-4: A minor / F major phrasing
+        this.MELODY = [
+            659, 784, 659, 523,   587, 659, 784, 659,   1047, 988, 880, 784,   659, 784, 1047, 0,
+            587, 784, 988, 784,   880, 988, 1175, 988,  784, 880, 988, 880,    784, 0,   587, 784,
+            880, 1047,1319,1047,  880, 784, 659, 880,   1047,988, 880, 784,    659, 784, 880, 0,
+            698, 880, 1047,880,   784, 880,1047, 880,   698, 784, 880, 784,    1047, 0,  784, 659
+        ];
+
+        // Bass: 16 quarter-note pitches (4 bars × 4 beats, root+fifth pattern)
+        this.BASS = [
+            131, 131, 196, 131,   98, 98, 147, 98,   110, 110, 165, 110,   87, 87, 131, 87
+        ];
+
+        // Chord pads: 4 chords × 1 bar each [C, G, Am, F]
+        this.CHORDS = [
+            [262, 330, 392],
+            [196, 247, 294],
+            [220, 262, 330],
+            [175, 220, 262]
+        ];
+    }
+
+    init(audioContext) {
+        if (!audioContext) return;
+        this.audioContext = audioContext;
+        this.masterGain = audioContext.createGain();
+        this.masterGain.gain.value = 0.28;
+        this.masterGain.connect(audioContext.destination);
+    }
+
+    start() {
+        if (!this.audioContext || this.playing || !this.enabled) return;
+        this.playing = true;
+        this.nextLoopTime = this.audioContext.currentTime + 0.05;
+        this.schedulerInterval = setInterval(() => this._scheduleLoop(), 25);
+    }
+
+    stop() {
+        this.playing = false;
+        if (this.schedulerInterval) {
+            clearInterval(this.schedulerInterval);
+            this.schedulerInterval = null;
+        }
+        if (this.masterGain && this.audioContext) {
+            const now = this.audioContext.currentTime;
+            this.masterGain.gain.cancelScheduledValues(now);
+            this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
+            this.masterGain.gain.linearRampToValueAtTime(0.001, now + 0.8);
+        }
+    }
+
+    setEnabled(val) {
+        this.enabled = val;
+        if (!val) {
+            this.stop();
+        } else if (!this.playing && this.audioContext) {
+            // Restore gain then start
+            if (this.masterGain) {
+                const now = this.audioContext.currentTime;
+                this.masterGain.gain.cancelScheduledValues(now);
+                this.masterGain.gain.setValueAtTime(0.28, now);
+            }
+            this.start();
+        }
+    }
+
+    _scheduleLoop() {
+        if (!this.audioContext || !this.playing) return;
+        const now = this.audioContext.currentTime;
+        while (this.nextLoopTime < now + this.scheduleAheadTime) {
+            this._scheduleMelody(this.nextLoopTime);
+            this._scheduleBass(this.nextLoopTime);
+            this._scheduleChords(this.nextLoopTime);
+            this.nextLoopTime += this.loopDuration;
+        }
+    }
+
+    _scheduleMelody(loopStart) {
+        this.MELODY.forEach((freq, i) => {
+            if (freq === 0) return;
+            const t = loopStart + i * this.sixteenthNote;
+            this._playNote(freq, t, this.sixteenthNote * 1.75, 'sine', 0.11, 0.008, 0.07);
+        });
+    }
+
+    _scheduleBass(loopStart) {
+        this.BASS.forEach((freq, i) => {
+            const t = loopStart + i * this.quarterNote;
+            this._playNote(freq, t, this.quarterNote * 0.8, 'square', 0.055, 0.005, 0.08);
+        });
+    }
+
+    _scheduleChords(loopStart) {
+        // 1 bar per chord = 4 quarter notes = 16 sixteenth notes
+        const chordDuration = this.quarterNote * 4;
+        this.CHORDS.forEach((chord, i) => {
+            const chordStart = loopStart + i * chordDuration;
+            chord.forEach(freq => {
+                this._playNote(freq, chordStart, chordDuration * 0.94, 'triangle', 0.038, 0.2, 0.4);
+            });
+        });
+    }
+
+    _playNote(freq, startTime, duration, type, gainValue, attack, release) {
+        if (!this.audioContext || !this.enabled || !this.masterGain) return;
+        try {
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+            osc.type = type;
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.0001, startTime);
+            gain.gain.linearRampToValueAtTime(gainValue, startTime + attack);
+            gain.gain.setValueAtTime(gainValue, startTime + duration - release);
+            gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+        } catch (e) {
+            // Ignore scheduling errors (common when context is suspended)
+        }
+    }
+}
+
+const musicManager = new MusicManager();
+
 // Boot Scene
 class BootScene extends Phaser.Scene {
     constructor() {
@@ -176,6 +322,7 @@ class BootScene extends Phaser.Scene {
         this.createTextures();
 
         soundManager.init();
+        musicManager.init(soundManager.audioContext);
         this.scene.start('MainMenuScene');
     }
 
@@ -763,6 +910,17 @@ class GameScene extends Phaser.Scene {
             this.eventBanner.setPosition(width / 2, 145);
         }
 
+        // Reposition prestige display
+        if (this.prestigeDisplay) {
+            this.prestigeDisplay.setPosition(width - 70, 55);
+        }
+
+        // Reposition booster row
+        if (this.boosterRow) {
+            this.boosterRow.setPosition(width / 2, height - 120);
+            this._boosterWidth = width;
+        }
+
         // Rebuild bottom nav on resize
         if (this.bottomNav) {
             this.bottomNav.destroy();
@@ -836,6 +994,26 @@ class GameScene extends Phaser.Scene {
             this.gameState = Economy.createNewSave();
         }
         soundManager.enabled = this.gameState.settings?.soundEnabled !== false;
+        musicManager.enabled = this.gameState.settings?.musicEnabled !== false;
+
+        // Handle new day / streak tracking
+        const streakResult = Economy.updateStreak(
+            this.gameState.lastPlayDate || '',
+            this.gameState.streak || 0
+        );
+        if (streakResult.isNewDay) {
+            this.gameState.streak = streakResult.streak;
+            this.gameState.lastPlayDate = Economy.getTodayString();
+            if (streakResult.streakBonus > 0) {
+                this.gameState.money += streakResult.streakBonus;
+                this.gameState.totalEarned += streakResult.streakBonus;
+            }
+            // Reset daily stats for new day
+            this.gameState.dailyStats = { taps: 0, earned: 0, luckyBonuses: 0, upgradesBought: 0, maxCombo: 0 };
+            this.gameState.dailyDate = Economy.getTodayString();
+            this.gameState.dailyCompleted = [];
+            this._pendingStreakBonus = streakResult.streakBonus;
+        }
     }
 
     saveGame() {
@@ -1115,6 +1293,48 @@ class GameScene extends Phaser.Scene {
             color: '#6B7280'
         }).setOrigin(0.5);
 
+        // Stage badge (top-left) - hidden until stage 1
+        this.stageBadge = this.add.container(75, 55);
+        this.stageBadgeBg = this.add.graphics();
+        this.stageBadge.add(this.stageBadgeBg);
+        this.stageBadgeText = this.add.text(0, 0, '', {
+            fontSize: '11px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#FFFFFF',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+        this.stageBadge.add(this.stageBadgeText);
+        this.stageBadge.setVisible(false);
+
+        // Streak badge (below stage badge) - hidden until stage 4
+        this.streakBadge = this.add.container(65, 93);
+        this.streakBadgeBg = this.add.graphics();
+        this.streakBadge.add(this.streakBadgeBg);
+        this.streakBadgeText = this.add.text(0, 0, '', {
+            fontSize: '11px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#FFFFFF',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+        this.streakBadge.add(this.streakBadgeText);
+        this.streakBadge.setVisible(false);
+
+        // Prestige display (top-right) - hidden until stage 3
+        this.prestigeDisplay = this.add.container(width - 70, 55);
+        this.prestigeDisplayBg = this.add.graphics();
+        this.prestigeDisplay.add(this.prestigeDisplayBg);
+        this.prestigeDisplayText = this.add.text(0, 0, '', {
+            fontSize: '12px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#FFFFFF',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+        this.prestigeDisplay.add(this.prestigeDisplayText);
+        this.prestigeDisplay.setVisible(false).setInteractive(
+            new Phaser.Geom.Rectangle(-45, -16, 90, 32), Phaser.Geom.Rectangle.Contains
+        );
+        this.prestigeDisplay.on('pointerdown', () => this.openPrestige());
+
         // Progress bar
         this.progressContainer = this.add.container(width / 2, height / 2 + 125);
 
@@ -1132,6 +1352,18 @@ class GameScene extends Phaser.Scene {
             color: '#6B7280'
         }).setOrigin(0.5);
         this.progressContainer.add(this.progressText);
+
+        // Stage progress bar (below stand progress bar) - hidden until stage 1
+        this.stageProgressFill = this.add.graphics();
+        this.progressContainer.add(this.stageProgressFill);
+        this.stageProgressText = this.add.text(0, 50, '', {
+            fontSize: '11px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#6B7280'
+        }).setOrigin(0.5);
+        this.progressContainer.add(this.stageProgressText);
+        this.stageProgressFill.setVisible(false);
+        this.stageProgressText.setVisible(false);
 
         // Event banner
         this.eventBanner = this.add.container(width / 2, 145);
@@ -1162,9 +1394,29 @@ class GameScene extends Phaser.Scene {
             strokeThickness: 3
         }).setOrigin(0.5).setAlpha(0).setDepth(10);
 
+        // Flavor booster row (above nav) - hidden until stage 2
+        this.boosterRow = this.add.container(width / 2, height - 120);
+        this.boosterRow.setVisible(false);
+        this._boosterWidth = width;
+
         // Bottom navigation
         this.createBottomNav(width, height);
         this.updateUI();
+
+        // Show pending streak bonus after short delay (if new day)
+        if (this._pendingStreakBonus && this._pendingStreakBonus > 0) {
+            this.time.delayedCall(1200, () => {
+                const currentStage = Economy.getProgressionStage(this.gameState.totalEarned);
+                if (currentStage.index >= 1) {
+                    this.showFloatingText(
+                        width / 2, height / 2,
+                        `🔥 Streak! +$${this._pendingStreakBonus.toFixed(2)}`,
+                        '#F59E0B', 22
+                    );
+                }
+                this._pendingStreakBonus = 0;
+            });
+        }
     }
 
     createBottomNav(width, height) {
@@ -1180,26 +1432,28 @@ class GameScene extends Phaser.Scene {
         navBg.strokeRoundedRect(20, navY - 35, width - 40, 70, 20);
         this.bottomNav.add(navBg);
 
-        // Calculate button spacing based on width
-        const buttonSpacing = Math.min(100, (width - 80) / 3);
+        // 4-button nav (Daily button hidden until Stage 1 unlock)
+        const buttonSpacing = Math.min(88, (width - 60) / 4);
+        const centerX = width / 2;
 
         const buttons = [
-            { x: width / 2 - buttonSpacing, label: 'Shop', icon: '🛒', callback: () => this.openShop() },
-            { x: width / 2, label: 'Quests', icon: '⭐', callback: () => this.openQuests() },
-            { x: width / 2 + buttonSpacing, label: 'Menu', icon: '⚙️', callback: () => this.openSettings() }
+            { x: centerX - buttonSpacing * 1.5, label: 'Shop',   icon: '🛒', callback: () => this.openShop(),   ref: null },
+            { x: centerX - buttonSpacing * 0.5, label: 'Quests', icon: '⭐', callback: () => this.openQuests(), ref: null },
+            { x: centerX + buttonSpacing * 0.5, label: 'Daily',  icon: '📋', callback: () => this.openDailyChallenges(), ref: 'dailyNavBtn', hidden: true },
+            { x: centerX + buttonSpacing * 1.5, label: 'Menu',   icon: '⚙️', callback: () => this.openSettings(), ref: null }
         ];
 
         buttons.forEach(btn => {
             const container = this.add.container(btn.x, navY);
 
-            const hitArea = this.add.rectangle(0, 0, 80, 60, 0x000000, 0).setInteractive({ useHandCursor: true });
+            const hitArea = this.add.rectangle(0, 0, 75, 60, 0x000000, 0).setInteractive({ useHandCursor: true });
             container.add(hitArea);
 
             const icon = this.add.text(0, -8, btn.icon, { fontSize: '22px' }).setOrigin(0.5);
             container.add(icon);
 
             const label = this.add.text(0, 16, btn.label, {
-                fontSize: '12px',
+                fontSize: '11px',
                 fontFamily: 'system-ui, -apple-system, sans-serif',
                 color: '#374151',
                 fontStyle: 'bold'
@@ -1217,12 +1471,11 @@ class GameScene extends Phaser.Scene {
                 });
             });
 
+            if (btn.hidden) container.setVisible(false);
+            if (btn.ref) this[btn.ref] = container;
+
             this.bottomNav.add(container);
         });
-    }
-
-    shutdown() {
-        this.scale.off('resize', this.handleResize, this);
     }
 
     createParticles() {
@@ -1247,6 +1500,11 @@ class GameScene extends Phaser.Scene {
     onTap(pointer) {
         soundManager.play('click');
 
+        // Start music on first tap (browser audio policy requires user gesture)
+        if (!musicManager.playing && musicManager.enabled) {
+            musicManager.start();
+        }
+
         // Update combo
         const now = Date.now();
         if (now - this.lastTapTime < 2000) {
@@ -1269,6 +1527,22 @@ class GameScene extends Phaser.Scene {
         const comboBonus = 1 + Math.min(this.comboCount - 1, 25) * 0.02;
         clickValue *= comboBonus;
 
+        // Prestige multiplier
+        const prestigeMult = Economy.calculatePrestigeMultiplier(this.gameState.prestigeStars || 0);
+        clickValue *= prestigeMult;
+
+        // Active booster (tap or all multiplier)
+        const activeBooster = this.gameState.activeBooster;
+        if (activeBooster && Date.now() < (activeBooster.endsAt || 0)) {
+            const boosterDef = Economy.FLAVOR_BOOSTERS.find(b => b.id === activeBooster.id);
+            if (boosterDef && (boosterDef.effect === 'tapMultiplier' || boosterDef.effect === 'allMultiplier')) {
+                clickValue *= boosterDef.value;
+            }
+        } else if (activeBooster && Date.now() >= (activeBooster.endsAt || 0)) {
+            this.gameState.activeBooster = null;
+            this._lastBoosterSig = null;
+        }
+
         const luckyChance = Economy.calculateLuckyChance(this.gameState.upgradeLevels);
         const isLucky = Math.random() < luckyChance;
 
@@ -1281,6 +1555,17 @@ class GameScene extends Phaser.Scene {
         this.gameState.money += clickValue;
         this.gameState.totalEarned += clickValue;
         this.gameState.totalSales++;
+
+        // Daily stats tracking
+        if (!this.gameState.dailyStats) {
+            this.gameState.dailyStats = { taps: 0, earned: 0, luckyBonuses: 0, upgradesBought: 0, maxCombo: 0 };
+        }
+        this.gameState.dailyStats.taps = (this.gameState.dailyStats.taps || 0) + 1;
+        this.gameState.dailyStats.earned = (this.gameState.dailyStats.earned || 0) + clickValue;
+        if (isLucky) {
+            this.gameState.dailyStats.luckyBonuses = (this.gameState.dailyStats.luckyBonuses || 0) + 1;
+        }
+        this.gameState.dailyStats.maxCombo = Math.max(this.gameState.dailyStats.maxCombo || 0, this.comboCount);
 
         // Floating text
         this.showFloatingText(
@@ -1422,6 +1707,25 @@ class GameScene extends Phaser.Scene {
         if (autoIncome > 0) {
             let income = autoIncome * this.eventMultiplier;
             income *= Economy.calculatePriceMultiplier(this.gameState.upgradeLevels);
+
+            // Prestige multiplier
+            income *= Economy.calculatePrestigeMultiplier(this.gameState.prestigeStars || 0);
+
+            // Streak multiplier
+            income *= Economy.getStreakMultiplier(this.gameState.streak || 0);
+
+            // Active booster (auto or all multiplier)
+            const activeBooster = this.gameState.activeBooster;
+            if (activeBooster && Date.now() < (activeBooster.endsAt || 0)) {
+                const boosterDef = Economy.FLAVOR_BOOSTERS.find(b => b.id === activeBooster.id);
+                if (boosterDef && (boosterDef.effect === 'autoMultiplier' || boosterDef.effect === 'allMultiplier')) {
+                    income *= boosterDef.value;
+                }
+            } else if (activeBooster && Date.now() >= (activeBooster.endsAt || 0)) {
+                this.gameState.activeBooster = null;
+                this._lastBoosterSig = null;
+            }
+
             this.gameState.money += income;
             this.gameState.totalEarned += income;
             this.updateUI();
@@ -1473,7 +1777,44 @@ class GameScene extends Phaser.Scene {
             this.showQuestComplete(quest);
         }
 
-        if (completed.length > 0) {
+        // Check daily challenges
+        const today = Economy.getTodayString();
+        if (!this.gameState.dailyStats) {
+            this.gameState.dailyStats = { taps: 0, earned: 0, luckyBonuses: 0, upgradesBought: 0, maxCombo: 0 };
+        }
+        if (!this.gameState.dailyCompleted) this.gameState.dailyCompleted = [];
+
+        const dailyChallenges = Economy.getDailyChallenges(today);
+        let newDailyCompleted = false;
+        dailyChallenges.forEach((ch, i) => {
+            const key = `day_${today}_${i}`;
+            if (!this.gameState.dailyCompleted.includes(key) &&
+                Economy.checkDailyChallenge(ch, this.gameState.dailyStats)) {
+                this.gameState.dailyCompleted.push(key);
+                this.gameState.money += ch.reward;
+                soundManager.play('quest');
+                const { width, height } = this.scale;
+                this.showFloatingText(width / 2, height / 2 - 40,
+                    `📋 Daily: +$${ch.reward}!`, '#F59E0B', 20);
+                newDailyCompleted = true;
+            }
+        });
+
+        // All 3 daily challenges bonus
+        const todayKeys = dailyChallenges.map((_, i) => `day_${today}_${i}`);
+        const allDone = todayKeys.every(k => this.gameState.dailyCompleted.includes(k));
+        const bonusKey = `bonus_${today}`;
+        if (allDone && !this.gameState.dailyCompleted.includes(bonusKey)) {
+            this.gameState.dailyCompleted.push(bonusKey);
+            this.gameState.money += Economy.DAILY_BONUS_REWARD;
+            soundManager.play('levelUp');
+            const { width, height } = this.scale;
+            this.showFloatingText(width / 2, height / 2 - 60,
+                `🏆 All Daily Done! +$${Economy.DAILY_BONUS_REWARD}!`, '#10B981', 24);
+            newDailyCompleted = true;
+        }
+
+        if (completed.length > 0 || newDailyCompleted) {
             this.updateUI();
             this.saveGame();
         }
@@ -1550,9 +1891,276 @@ class GameScene extends Phaser.Scene {
         this.progressFill.setCrop(0, 0, progressWidth, 12);
 
         if (progress.next) {
-            this.progressText.setText(`Next: ${progress.next.name} ($${progress.next.moneyRequired})`);
+            this.progressText.setText(`Stand: ${progress.next.name} ($${progress.next.moneyRequired})`);
         } else {
-            this.progressText.setText('🏆 Max Level!');
+            this.progressText.setText('🏆 Max Stand Level!');
+        }
+
+        // --- Stage system updates ---
+        const currentStage = Economy.getProgressionStage(this.gameState.totalEarned);
+
+        // Detect stage change and trigger transition (first time only)
+        if (currentStage.index > (this.lastKnownStageIndex !== undefined ? this.lastKnownStageIndex : -1)) {
+            this.lastKnownStageIndex = currentStage.index;
+            if (!(this.gameState.seenStages || []).includes(currentStage.id)) {
+                this.triggerStageTransition(currentStage);
+            }
+        }
+
+        // Stage badge (visible at stage >= 1)
+        if (currentStage.index >= 1 && this.stageBadge) {
+            this.stageBadge.setVisible(true);
+            this.stageBadgeBg.clear();
+            this.stageBadgeBg.fillStyle(currentStage.color, 0.92);
+            this.stageBadgeBg.fillRoundedRect(-50, -16, 100, 32, 10);
+            this.stageBadgeText.setText(currentStage.name);
+        }
+
+        // Stage progress bar (visible at stage >= 1)
+        if (currentStage.index >= 1 && this.stageProgressFill) {
+            this.stageProgressFill.setVisible(true);
+            this.stageProgressText.setVisible(true);
+            const stageProg = Economy.getStageProgress(this.gameState.totalEarned);
+            const stageBarW = Math.floor(stageProg * 280);
+            this.stageProgressFill.clear();
+            // Background track
+            this.stageProgressFill.fillStyle(0xE5E7EB, 1);
+            this.stageProgressFill.fillRoundedRect(-140, 36, 280, 10, 5);
+            // Fill
+            if (stageBarW > 0) {
+                this.stageProgressFill.fillStyle(currentStage.color, 1);
+                this.stageProgressFill.fillRoundedRect(-140, 36, stageBarW, 10, 5);
+            }
+            if (currentStage.thresholdMax !== Infinity) {
+                const nextStage = Economy.PROGRESSION_STAGES[currentStage.index + 1];
+                this.stageProgressText.setText(nextStage ? `Stage: ${nextStage.name} ($${nextStage.thresholdMin.toLocaleString()})` : '');
+            } else {
+                this.stageProgressText.setText('🌟 Maximum Stage!');
+            }
+        }
+
+        // Streak badge (visible at stage >= 4)
+        if (currentStage.index >= 4 && this.streakBadge) {
+            this.streakBadge.setVisible(true);
+            const streak = this.gameState.streak || 0;
+            this.streakBadgeBg.clear();
+            this.streakBadgeBg.fillStyle(0xF97316, 0.92);
+            this.streakBadgeBg.fillRoundedRect(-40, -14, 80, 28, 8);
+            this.streakBadgeText.setText(`🔥 ${streak}d`);
+        }
+
+        // Prestige display (visible at stage >= 3)
+        if (currentStage.index >= 3 && this.prestigeDisplay) {
+            this.prestigeDisplay.setVisible(true);
+            const stars = this.gameState.prestigeStars || 0;
+            const canPrestige = Economy.canPrestige(this.gameState.totalEarned);
+            const bgColor = canPrestige ? 0xF59E0B : 0x8B5CF6;
+            this.prestigeDisplayBg.clear();
+            this.prestigeDisplayBg.fillStyle(bgColor, 0.92);
+            this.prestigeDisplayBg.fillRoundedRect(-45, -16, 90, 32, 10);
+            this.prestigeDisplayText.setText(canPrestige ? `★ ${stars} ✨` : `★ ${stars}`);
+        }
+
+        // Booster row (visible at stage >= 2)
+        if (currentStage.index >= 2 && this.boosterRow) {
+            this.boosterRow.setVisible(true);
+            this.refreshBoosterRow();
+        }
+    }
+
+    refreshBoosterRow() {
+        if (!this.boosterRow) return;
+        // Clear existing children except we recreate each frame check
+        // Use a flag to avoid recreating every frame — only update on state change
+        const boosters = Economy.getAvailableBoosters(this.gameState.totalEarned);
+        const activeBooster = this.gameState.activeBooster;
+        const cooldownEnd = this.gameState.boosterCooldown || 0;
+        const isReady = Economy.isBoosterReady(cooldownEnd);
+        const cooldownSecs = Economy.getBoosterCooldownRemaining(cooldownEnd);
+
+        // Build a state signature to avoid unnecessary rebuilds
+        const sig = boosters.map(b => b.id).join(',') + '|' +
+            (activeBooster ? activeBooster.id : 'none') + '|' +
+            (isReady ? 'ready' : Math.floor(cooldownSecs / 5));
+
+        if (this._lastBoosterSig === sig) return;
+        this._lastBoosterSig = sig;
+
+        // Rebuild
+        this.boosterRow.removeAll(true);
+
+        const spacing = 70;
+        const startX = -(boosters.length - 1) * spacing / 2;
+
+        boosters.forEach((booster, i) => {
+            const bx = startX + i * spacing;
+            const isActive = activeBooster && activeBooster.id === booster.id && Date.now() < (activeBooster.endsAt || 0);
+            const canActivate = isReady && !activeBooster;
+
+            const circle = this.add.circle(bx, 0, 28, booster.color, isActive ? 1 : 0.75);
+            this.boosterRow.add(circle);
+
+            if (isActive) {
+                // Glowing ring for active booster
+                const ring = this.add.circle(bx, 0, 33, booster.color, 0);
+                ring.setStrokeStyle(3, booster.color, 0.6);
+                this.boosterRow.add(ring);
+                const secsLeft = Math.max(0, Math.ceil(((activeBooster.endsAt || 0) - Date.now()) / 1000));
+                const activeText = this.add.text(bx, 34, `${secsLeft}s`, {
+                    fontSize: '10px', fontFamily: 'system-ui', color: '#FFFFFF', fontStyle: 'bold'
+                }).setOrigin(0.5);
+                this.boosterRow.add(activeText);
+            } else if (!isReady) {
+                // Cooldown overlay
+                const cdOverlay = this.add.circle(bx, 0, 28, 0x000000, 0.4);
+                this.boosterRow.add(cdOverlay);
+                const cdText = this.add.text(bx, 0, `${cooldownSecs}s`, {
+                    fontSize: '11px', fontFamily: 'system-ui', color: '#FFFFFF', fontStyle: 'bold'
+                }).setOrigin(0.5);
+                this.boosterRow.add(cdText);
+            }
+
+            const emoji = { strawberry: '🍓', blueberry: '🫐', mango: '🥭' }[booster.id] || '🍋';
+            const emojiText = this.add.text(bx, 0, emoji, { fontSize: '18px' }).setOrigin(0.5);
+            this.boosterRow.add(emojiText);
+
+            const nameText = this.add.text(bx, -42, booster.name.split(' ')[0], {
+                fontSize: '10px', fontFamily: 'system-ui', color: '#374151', fontStyle: 'bold'
+            }).setOrigin(0.5);
+            this.boosterRow.add(nameText);
+
+            if (canActivate) {
+                const hitArea = this.add.circle(bx, 0, 30, 0x000000, 0).setInteractive({ useHandCursor: true });
+                this.boosterRow.add(hitArea);
+                hitArea.on('pointerdown', () => this.activateBooster(booster));
+            }
+        });
+    }
+
+    activateBooster(booster) {
+        if (!Economy.isBoosterReady(this.gameState.boosterCooldown)) return;
+        if (this.gameState.activeBooster) return;
+        this.gameState.activeBooster = { id: booster.id, endsAt: Date.now() + booster.duration };
+        this.gameState.boosterCooldown = Date.now() + Economy.BOOSTER_COOLDOWN;
+        soundManager.play('upgrade');
+        this.showFloatingText(this.scale.width / 2, this.scale.height / 2 - 60, `${booster.name} activated!`, '#EC4899', 18);
+        this._lastBoosterSig = null; // Force refresh
+        this.saveGame();
+    }
+
+    triggerStageTransition(stage) {
+        if (!stage || !this.gameState) return;
+        // Mark as seen
+        if (!this.gameState.seenStages) this.gameState.seenStages = [];
+        this.gameState.seenStages.push(stage.id);
+        this.saveGame();
+
+        const { width, height } = this.scale;
+        soundManager.play('levelUp');
+
+        // Full-screen color wash
+        const overlay = this.add.rectangle(width / 2, height / 2, width, height, stage.color, 0).setDepth(100);
+
+        this.tweens.add({
+            targets: overlay,
+            fillAlpha: 0.88,
+            duration: 320,
+            ease: 'Quad.easeIn',
+            onComplete: () => {
+                const nameText = this.add.text(width / 2, height / 2 - 55, stage.name, {
+                    fontSize: '40px',
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                    color: '#FFFFFF',
+                    fontStyle: 'bold',
+                    stroke: '#00000033',
+                    strokeThickness: 3
+                }).setOrigin(0.5).setDepth(101).setAlpha(0);
+
+                const tagText = this.add.text(width / 2, height / 2 + 5, stage.tagline, {
+                    fontSize: '17px',
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                    color: '#FFFFFFEE',
+                    align: 'center',
+                    wordWrap: { width: width - 60 }
+                }).setOrigin(0.5).setDepth(101).setAlpha(0);
+
+                const unlockText = stage.achievementText ? this.add.text(width / 2, height / 2 + 55,
+                    '✨ ' + stage.achievementText, {
+                        fontSize: '15px',
+                        fontFamily: 'system-ui, -apple-system, sans-serif',
+                        color: '#FEFCE8',
+                        fontStyle: 'bold',
+                        align: 'center'
+                    }).setOrigin(0.5).setDepth(101).setAlpha(0) : null;
+
+                this.tweens.add({
+                    targets: [nameText, tagText, unlockText].filter(Boolean),
+                    alpha: 1,
+                    duration: 380,
+                    ease: 'Power2'
+                });
+
+                // Sparkle burst
+                if (this.sparkleParticles) {
+                    this.sparkleParticles.setPosition(width / 2, height / 2);
+                    this.sparkleParticles.explode(28);
+                }
+
+                this.time.delayedCall(1900, () => {
+                    const toFade = [overlay, nameText, tagText, unlockText].filter(Boolean);
+                    this.tweens.add({
+                        targets: toFade,
+                        alpha: 0,
+                        duration: 480,
+                        ease: 'Quad.easeOut',
+                        onComplete: () => {
+                            toFade.forEach(o => o.destroy());
+                            if (stage.unlocks) {
+                                this.revealUnlockedFeature(stage.unlocks);
+                            }
+                        }
+                    });
+                });
+            }
+        });
+    }
+
+    revealUnlockedFeature(unlockKey) {
+        switch (unlockKey) {
+            case 'dailyChallenges':
+                if (this.dailyNavBtn) {
+                    this.dailyNavBtn.setVisible(true).setScale(0);
+                    this.tweens.add({ targets: this.dailyNavBtn, scale: 1, duration: 420, ease: 'Back.out' });
+                }
+                break;
+            case 'flavorBoosters':
+                if (this.boosterRow) {
+                    this.boosterRow.setVisible(true);
+                    this.boosterRow.setAlpha(0);
+                    const origY = this.boosterRow.y;
+                    this.boosterRow.y = origY + 50;
+                    this.tweens.add({
+                        targets: this.boosterRow,
+                        y: origY,
+                        alpha: 1,
+                        duration: 480,
+                        ease: 'Back.out'
+                    });
+                    this._lastBoosterSig = null;
+                    this.refreshBoosterRow();
+                }
+                break;
+            case 'prestigeStars':
+                if (this.prestigeDisplay) {
+                    this.prestigeDisplay.setVisible(true).setScale(0);
+                    this.tweens.add({ targets: this.prestigeDisplay, scale: 1, duration: 420, ease: 'Back.out' });
+                }
+                break;
+            case 'streakDisplay':
+                if (this.streakBadge) {
+                    this.streakBadge.setVisible(true);
+                }
+                break;
         }
     }
 
@@ -1569,6 +2177,35 @@ class GameScene extends Phaser.Scene {
     openSettings() {
         this.scene.pause();
         this.scene.launch('SettingsScene', { gameState: this.gameState, parentScene: this });
+    }
+
+    openDailyChallenges() {
+        this.scene.pause();
+        this.scene.launch('DailyChallengeScene', { gameState: this.gameState, parentScene: this });
+    }
+
+    openPrestige() {
+        if (!Economy.canPrestige(this.gameState.totalEarned)) return;
+        this.scene.pause();
+        this.scene.launch('PrestigeConfirmScene', { gameState: this.gameState, parentScene: this });
+    }
+
+    doPrestige() {
+        const newStars = Economy.calculatePrestigeStars(this.gameState.totalEarned);
+        const fresh = Economy.createNewSave();
+        fresh.prestigeStars = (this.gameState.prestigeStars || 0) + newStars;
+        fresh.streak = this.gameState.streak || 0;
+        fresh.lastPlayDate = this.gameState.lastPlayDate || '';
+        fresh.settings = this.gameState.settings;
+        fresh.seenStages = this.gameState.seenStages || [];
+        this.gameState = fresh;
+        this.saveGame();
+        this.scene.restart();
+    }
+
+    shutdown() {
+        this.scale.off('resize', this.handleResize, this);
+        musicManager.stop();
     }
 
     returnFromOverlay() {
@@ -1755,6 +2392,11 @@ class ShopScene extends Phaser.Scene {
             this.gameState.money -= cost;
             this.gameState.upgradeLevels[upgradeId] = currentLevel + 1;
             soundManager.play('upgrade');
+            // Track daily stat
+            if (!this.gameState.dailyStats) {
+                this.gameState.dailyStats = { taps: 0, earned: 0, luckyBonuses: 0, upgradesBought: 0, maxCombo: 0 };
+            }
+            this.gameState.dailyStats.upgradesBought = (this.gameState.dailyStats.upgradesBought || 0) + 1;
             this.updateMoneyDisplay();
             this.refreshUpgradeList();
             this.parentScene.saveGame();
@@ -1875,45 +2517,51 @@ class SettingsScene extends Phaser.Scene {
 
         const card = this.add.graphics();
         card.fillStyle(COLORS.white, 1);
-        card.fillRoundedRect(30, 150, width - 60, 400, 24);
+        card.fillRoundedRect(30, 140, width - 60, 470, 24);
 
-        this.add.text(width / 2, 185, 'Settings', {
+        this.add.text(width / 2, 175, 'Settings', {
             fontSize: '26px',
             fontFamily: 'system-ui, -apple-system, sans-serif',
             color: '#111827',
             fontStyle: 'bold'
         }).setOrigin(0.5);
 
-        const closeBtn = this.add.image(width - 55, 180, 'closeBtn').setScale(1).setInteractive({ useHandCursor: true });
+        const closeBtn = this.add.image(width - 55, 170, 'closeBtn').setScale(1).setInteractive({ useHandCursor: true });
         closeBtn.on('pointerdown', () => this.closeSettings());
 
         // Toggles
-        this.createToggle(width / 2, 250, 'Sound Effects', this.gameState.settings?.soundEnabled !== false, (val) => {
+        this.createToggle(width / 2, 235, 'Sound Effects', this.gameState.settings?.soundEnabled !== false, (val) => {
             this.gameState.settings.soundEnabled = val;
             soundManager.enabled = val;
             this.parentScene.saveGame();
         });
 
-        this.createToggle(width / 2, 310, 'Particles', this.gameState.settings?.particlesEnabled !== false, (val) => {
+        this.createToggle(width / 2, 293, 'Particles', this.gameState.settings?.particlesEnabled !== false, (val) => {
             this.gameState.settings.particlesEnabled = val;
             this.parentScene.saveGame();
         });
 
+        this.createToggle(width / 2, 351, 'Background Music', this.gameState.settings?.musicEnabled !== false, (val) => {
+            this.gameState.settings.musicEnabled = val;
+            musicManager.setEnabled(val);
+            this.parentScene.saveGame();
+        });
+
         // Stats
-        this.add.text(width / 2, 370, `Total Earned: $${this.gameState.totalEarned.toFixed(2)}`, {
+        this.add.text(width / 2, 415, `Total Earned: $${this.gameState.totalEarned.toFixed(2)}`, {
             fontSize: '14px',
             fontFamily: 'system-ui, -apple-system, sans-serif',
             color: '#6B7280'
         }).setOrigin(0.5);
 
-        this.add.text(width / 2, 395, `Total Sales: ${this.gameState.totalSales}`, {
+        this.add.text(width / 2, 440, `Total Sales: ${this.gameState.totalSales}`, {
             fontSize: '14px',
             fontFamily: 'system-ui, -apple-system, sans-serif',
             color: '#6B7280'
         }).setOrigin(0.5);
 
         // Reset button
-        this.createResetButton(width / 2, 470);
+        this.createResetButton(width / 2, 530);
     }
 
     createToggle(x, y, label, initialValue, onChange) {
@@ -2036,6 +2684,208 @@ class SettingsScene extends Phaser.Scene {
     }
 }
 
+// Daily Challenge Scene
+class DailyChallengeScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'DailyChallengeScene' });
+    }
+
+    init(data) {
+        this.gameState = data.gameState;
+        this.parentScene = data.parentScene;
+    }
+
+    create() {
+        const { width, height } = this.scale;
+        this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6);
+
+        const cardH = Math.min(500, height - 100);
+        const card = this.add.graphics();
+        card.fillStyle(COLORS.white, 1);
+        card.fillRoundedRect(25, (height - cardH) / 2, width - 50, cardH, 24);
+
+        const cardTop = (height - cardH) / 2;
+
+        this.add.text(width / 2, cardTop + 32, '📋 Daily Challenges', {
+            fontSize: '22px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#111827',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+
+        const closeBtn = this.add.image(width - 40, cardTop + 32, 'closeBtn').setScale(0.9).setInteractive({ useHandCursor: true });
+        closeBtn.on('pointerdown', () => this.close());
+
+        // Streak display
+        const streak = this.gameState.streak || 0;
+        const streakBonus = Economy.getStreakBonus(streak);
+        this.add.text(width / 2, cardTop + 68, `🔥 ${streak} day streak  •  Login bonus: $${streakBonus.toFixed(0)}`, {
+            fontSize: '13px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: '#F59E0B',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+
+        // Daily challenges
+        const today = Economy.getTodayString();
+        const challenges = Economy.getDailyChallenges(today);
+        if (!this.gameState.dailyCompleted) this.gameState.dailyCompleted = [];
+        if (!this.gameState.dailyStats) {
+            this.gameState.dailyStats = { taps: 0, earned: 0, luckyBonuses: 0, upgradesBought: 0, maxCombo: 0 };
+        }
+
+        let y = cardTop + 105;
+        challenges.forEach((ch, i) => {
+            const key = `day_${today}_${i}`;
+            const isComplete = this.gameState.dailyCompleted.includes(key);
+
+            // Progress calculation
+            const stats = this.gameState.dailyStats;
+            let current = 0;
+            const req = ch.requirement;
+            if (req.type === 'dailyTaps') current = stats.taps || 0;
+            else if (req.type === 'dailyEarned') current = stats.earned || 0;
+            else if (req.type === 'dailyLucky') current = stats.luckyBonuses || 0;
+            else if (req.type === 'dailyUpgrades') current = stats.upgradesBought || 0;
+            else if (req.type === 'dailyCombo') current = stats.maxCombo || 0;
+            const progress = Math.min(current / req.amount, 1);
+
+            const rowBg = this.add.graphics();
+            const rowColor = isComplete ? COLORS.success : COLORS.gray100;
+            rowBg.fillStyle(rowColor, isComplete ? 0.15 : 0.5);
+            rowBg.fillRoundedRect(35, y, width - 70, 88, 10);
+
+            const statusIcon = isComplete ? '✅' : '📌';
+            this.add.text(50, y + 14, `${statusIcon} ${ch.name}`, {
+                fontSize: '14px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                color: isComplete ? '#065F46' : '#374151',
+                fontStyle: 'bold'
+            });
+
+            this.add.text(50, y + 34, ch.description, {
+                fontSize: '12px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                color: '#6B7280'
+            });
+
+            // Progress bar
+            const barW = width - 120;
+            const barBg = this.add.graphics();
+            barBg.fillStyle(0xE5E7EB, 1);
+            barBg.fillRoundedRect(50, y + 55, barW, 10, 5);
+            if (progress > 0) {
+                barBg.fillStyle(isComplete ? COLORS.success : COLORS.primary, 1);
+                barBg.fillRoundedRect(50, y + 55, Math.floor(progress * barW), 10, 5);
+            }
+
+            this.add.text(width - 50, y + 14, `+$${ch.reward}`, {
+                fontSize: '13px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                color: '#F59E0B',
+                fontStyle: 'bold'
+            }).setOrigin(1, 0);
+
+            y += 98;
+        });
+
+        // All done bonus
+        const todayKeys = challenges.map((_, i) => `day_${today}_${i}`);
+        const allDone = todayKeys.every(k => this.gameState.dailyCompleted.includes(k));
+        const bonusKey = `bonus_${today}`;
+        const bonusCollected = this.gameState.dailyCompleted.includes(bonusKey);
+
+        this.add.text(width / 2, y + 10, allDone
+            ? (bonusCollected ? `🏆 All Complete! Bonus collected: +$${Economy.DAILY_BONUS_REWARD}` : `🏆 All Complete! Bonus: +$${Economy.DAILY_BONUS_REWARD}`)
+            : `Complete all 3 for +$${Economy.DAILY_BONUS_REWARD} bonus!`, {
+            fontSize: '13px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: allDone ? '#065F46' : '#6B7280',
+            fontStyle: allDone ? 'bold' : 'normal',
+            align: 'center'
+        }).setOrigin(0.5);
+    }
+
+    close() {
+        soundManager.play('click');
+        this.scene.stop();
+        this.parentScene.returnFromOverlay();
+    }
+}
+
+// Prestige Confirm Scene
+class PrestigeConfirmScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'PrestigeConfirmScene' });
+    }
+
+    init(data) {
+        this.gameState = data.gameState;
+        this.parentScene = data.parentScene;
+    }
+
+    create() {
+        const { width, height } = this.scale;
+        this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7);
+
+        const card = this.add.graphics();
+        card.fillStyle(COLORS.white, 1);
+        card.fillRoundedRect(30, height / 2 - 200, width - 60, 400, 24);
+
+        const newStars = Economy.calculatePrestigeStars(this.gameState.totalEarned);
+        const currentStars = this.gameState.prestigeStars || 0;
+        const totalStars = currentStars + newStars;
+        const newMult = Economy.calculatePrestigeMultiplier(totalStars);
+
+        this.add.text(width / 2, height / 2 - 165, '⭐ Prestige!', {
+            fontSize: '26px', fontFamily: 'system-ui', color: '#111827', fontStyle: 'bold'
+        }).setOrigin(0.5);
+
+        this.add.text(width / 2, height / 2 - 115, `Earn ${newStars} Lemonade Star${newStars !== 1 ? 's' : ''}`, {
+            fontSize: '20px', fontFamily: 'system-ui', color: '#8B5CF6', fontStyle: 'bold'
+        }).setOrigin(0.5);
+
+        this.add.text(width / 2, height / 2 - 75, [
+            `Total stars after: ${totalStars} ★`,
+            `Income multiplier: ${newMult.toFixed(1)}x`,
+            '',
+            '✅ Kept: Stars, streak, settings',
+            '🔄 Reset: Money, upgrades, stand'
+        ].join('\n'), {
+            fontSize: '14px', fontFamily: 'system-ui', color: '#374151',
+            lineSpacing: 6, align: 'center'
+        }).setOrigin(0.5);
+
+        // Confirm button
+        const confirmBg = this.add.graphics();
+        confirmBg.fillStyle(COLORS.success, 1);
+        confirmBg.fillRoundedRect(width / 2 - 80, height / 2 + 90, 160, 48, 14);
+        this.add.text(width / 2, height / 2 + 114, 'Prestige!', {
+            fontSize: '17px', fontFamily: 'system-ui', color: '#FFFFFF', fontStyle: 'bold'
+        }).setOrigin(0.5);
+        const confirmHit = this.add.rectangle(width / 2, height / 2 + 114, 160, 48, 0x000000, 0).setInteractive({ useHandCursor: true });
+        confirmHit.on('pointerdown', () => {
+            soundManager.play('levelUp');
+            this.scene.stop();
+            this.parentScene.doPrestige();
+        });
+
+        // Cancel button
+        const cancelBg = this.add.graphics();
+        cancelBg.fillStyle(COLORS.gray300, 1);
+        cancelBg.fillRoundedRect(width / 2 - 80, height / 2 + 150, 160, 40, 12);
+        this.add.text(width / 2, height / 2 + 170, 'Not yet', {
+            fontSize: '15px', fontFamily: 'system-ui', color: '#374151'
+        }).setOrigin(0.5);
+        const cancelHit = this.add.rectangle(width / 2, height / 2 + 170, 160, 40, 0x000000, 0).setInteractive({ useHandCursor: true });
+        cancelHit.on('pointerdown', () => {
+            soundManager.play('click');
+            this.scene.stop();
+            this.parentScene.returnFromOverlay();
+        });
+    }
+}
+
 // Phaser config - RESIZE mode fills the window dynamically
 const config = {
     type: Phaser.AUTO,
@@ -2055,7 +2905,7 @@ const config = {
             height: 1200
         }
     },
-    scene: [BootScene, MainMenuScene, GameScene, ShopScene, QuestScene, SettingsScene],
+    scene: [BootScene, MainMenuScene, GameScene, ShopScene, QuestScene, SettingsScene, DailyChallengeScene, PrestigeConfirmScene],
     render: {
         pixelArt: false,
         antialias: true
