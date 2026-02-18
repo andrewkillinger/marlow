@@ -7,7 +7,7 @@ const Economy = (function() {
     'use strict';
 
     // Save version for migration handling
-    const SAVE_VERSION = 2;
+    const SAVE_VERSION = 3;
 
     // Base game constants
     const BASE_LEMONADE_PRICE = 0.25;
@@ -373,6 +373,79 @@ const Economy = (function() {
     ];
 
     const BOOSTER_COOLDOWN = 300000; // 5 minutes between boosters
+
+    // ========================================
+    // Progression Stages (gradual reveal system)
+    // ========================================
+
+    const PROGRESSION_STAGES = [
+        {
+            id: 'backyard',
+            index: 0,
+            name: 'Backyard Dreamer',
+            tagline: 'Every empire starts with a dream!',
+            thresholdMin: 0,
+            thresholdMax: 100,
+            unlocks: null,
+            color: 0x86EFAC,
+            achievementText: 'Your lemonade stand is open!'
+        },
+        {
+            id: 'neighborhood',
+            index: 1,
+            name: 'Neighborhood Star',
+            tagline: 'The whole block knows your name!',
+            thresholdMin: 100,
+            thresholdMax: 1000,
+            unlocks: 'dailyChallenges',
+            color: 0xFCD34D,
+            achievementText: 'Daily Challenges unlocked!'
+        },
+        {
+            id: 'townbuzz',
+            index: 2,
+            name: 'Town Buzz',
+            tagline: 'People are coming from all over town!',
+            thresholdMin: 1000,
+            thresholdMax: 10000,
+            unlocks: 'flavorBoosters',
+            color: 0xF97316,
+            achievementText: 'Flavor Boosters unlocked!'
+        },
+        {
+            id: 'cityfame',
+            index: 3,
+            name: 'City Fame',
+            tagline: "You're famous across the whole city!",
+            thresholdMin: 10000,
+            thresholdMax: 100000,
+            unlocks: 'prestigeStars',
+            color: 0x8B5CF6,
+            achievementText: 'Prestige Stars unlocked!'
+        },
+        {
+            id: 'legend',
+            index: 4,
+            name: 'Lemonade Legend',
+            tagline: 'They wrote songs about your lemonade!',
+            thresholdMin: 100000,
+            thresholdMax: 1000000,
+            unlocks: 'streakDisplay',
+            color: 0xEC4899,
+            achievementText: 'Streak bonuses now visible!'
+        },
+        {
+            id: 'empire',
+            index: 5,
+            name: "Marlow's Empire",
+            tagline: 'The greatest lemonade empire ever known!',
+            thresholdMin: 1000000,
+            thresholdMax: Infinity,
+            unlocks: null,
+            color: 0xFCD34D,
+            achievementText: 'You did it, Marlow!'
+        }
+    ];
 
     // ========================================
     // Original calculation functions
@@ -846,6 +919,35 @@ const Economy = (function() {
     }
 
     // ========================================
+    // Progression Stage Helpers
+    // ========================================
+
+    /**
+     * Get the current progression stage based on total money earned
+     * @param {number} totalEarned
+     * @returns {Object} Stage object
+     */
+    function getProgressionStage(totalEarned) {
+        let current = PROGRESSION_STAGES[0];
+        for (const stage of PROGRESSION_STAGES) {
+            if (totalEarned >= stage.thresholdMin) current = stage;
+            else break;
+        }
+        return current;
+    }
+
+    /**
+     * Get progress fraction within the current stage (0.0–1.0)
+     * @param {number} totalEarned
+     * @returns {number}
+     */
+    function getStageProgress(totalEarned) {
+        const stage = getProgressionStage(totalEarned);
+        if (stage.thresholdMax === Infinity) return 1;
+        return Math.min((totalEarned - stage.thresholdMin) / (stage.thresholdMax - stage.thresholdMin), 1);
+    }
+
+    // ========================================
     // Save System
     // ========================================
 
@@ -867,7 +969,8 @@ const Economy = (function() {
             lastSaved: Date.now(),
             settings: {
                 soundEnabled: true,
-                particlesEnabled: true
+                particlesEnabled: true,
+                musicEnabled: true
             },
             // v2 fields
             dailyStats: { taps: 0, earned: 0, luckyBonuses: 0, upgradesBought: 0, maxCombo: 0 },
@@ -877,7 +980,9 @@ const Economy = (function() {
             lastPlayDate: '',
             prestigeStars: 0,
             boosterCooldown: 0,
-            activeBooster: null
+            activeBooster: null,
+            // v3 fields
+            seenStages: []
         };
     }
 
@@ -905,7 +1010,16 @@ const Economy = (function() {
             saveData.activeBooster = saveData.activeBooster || null;
         }
 
-        // Version 2 is current
+        // Migrate v2 to v3: add seenStages and musicEnabled
+        if (saveData.version === 2) {
+            saveData.version = 3;
+            saveData.seenStages = saveData.seenStages || [];
+            if (saveData.settings) {
+                saveData.settings.musicEnabled = saveData.settings.musicEnabled !== false;
+            }
+        }
+
+        // Version 3 is current
         if (saveData.version === SAVE_VERSION) {
             return saveData;
         }
@@ -973,7 +1087,10 @@ const Economy = (function() {
         getNextPrestigeMilestone,
         getAvailableBoosters,
         isBoosterReady,
-        getBoosterCooldownRemaining
+        getBoosterCooldownRemaining,
+        PROGRESSION_STAGES,
+        getProgressionStage,
+        getStageProgress
     };
 })();
 
